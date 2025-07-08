@@ -41,7 +41,7 @@ This document describes the current implemented features and functionalities of 
 -   **Dynamic Dream List Display:**
     -   The `App.tsx` component dynamically renders `DreamItem` components based on the `dreams` state.
     -   `DreamItem` component (`src/components/DreamItem.tsx`) displays the dream title, tags, and description.
-    -   Visual rendering of `DreamItem` ensures full dream titles are visible and the first line of the description is displayed.
+    -   Visual rendering of `DreamItem` ensures the first line of the description is displayed, but the dream title is currently being truncated and not fully visible.
 -   **Local Data Persistence:**
     -   Dream data is persisted using `localStorage` (`src/utils/localStorageUtils.ts`).
     -   Data is loaded from `localStorage` on application startup.

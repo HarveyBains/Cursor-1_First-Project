@@ -3,6 +3,7 @@
 # Ignore My source files
 
 
+
 # Dependencies
 node_modules/
 .pnp
@@ -36,6 +37,7 @@ pids
 
 # OS generated files
 .DS_Store
+
 .DS_Store?
 ._*
 .Spotlight-V100

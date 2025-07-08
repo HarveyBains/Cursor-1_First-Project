@@ -1,13 +1,20 @@
 import { useEffect, useState } from 'react';
 import DreamItem from './components/DreamItem';
 import ImportDialog from './components/ImportDialog';
+import DreamForm from './components/DreamForm';
 import { saveToLocalStorage, loadFromLocalStorage } from './utils/localStorageUtils';
+import { exportDreams } from './utils/importExportUtils';
 import './index.css';
 import type { DreamEntry } from './types/DreamEntry';
 
 function App() {
-  const [dreams, setDreams] = useState<DreamEntry[]>(() => loadFromLocalStorage('dreams_local', []));
+  const [dreams, setDreams] = useState<DreamEntry[]>(() => {
+    const loadedDreams = loadFromLocalStorage('dreams_local', []);
+    console.log('Loaded dreams from local storage:', loadedDreams);
+    return loadedDreams;
+  });
   const [showImportDialog, setShowImportDialog] = useState(false);
+  const [showAddDreamForm, setShowAddDreamForm] = useState(false);
 
   useEffect(() => {
     document.documentElement.classList.add('dark');
@@ -24,6 +31,15 @@ function App() {
 
   const handleResetAllDreams = () => {
     setDreams([]);
+  };
+
+  const handleAddDream = (newDream: DreamEntry) => {
+    setDreams((prevDreams) => [...prevDreams, newDream]);
+    setShowAddDreamForm(false);
+  };
+
+  const handleExportDreams = () => {
+    exportDreams(dreams);
   };
 
   return (
@@ -86,6 +102,7 @@ function App() {
               <div className="flex items-center gap-2">
                 {/* Export Button */}
                 <button
+                  onClick={handleExportDreams}
                   className="px-3 py-2 rounded-lg text-xs transition-colors font-medium flex items-center gap-1.5 border bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -106,6 +123,7 @@ function App() {
               </div>
               {/* Add Notion Button */}
               <button
+                onClick={() => setShowAddDreamForm(true)}
                 className="bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-lg text-sm transition-colors font-medium whitespace-nowrap"
               >
                 Add Notion
@@ -123,14 +141,14 @@ function App() {
                 className="px-3 py-1 text-xs rounded-full transition-colors flex items-center gap-1.5 bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
               >
                 <span>🕐 Recents</span>
-                <span className="px-1.5 py-0.5 text-xs rounded-full font-medium bg-primary/20 text-primary">0</span>
+                <span className="px-1.5 py-0.5 text-xs rounded-full font-medium bg-primary/20 text-primary">{dreams.length}</span>
               </button>
               {/* Favorites Button */}
               <button
                 className="px-3 py-1 text-xs rounded-full transition-colors flex items-center gap-1.5 bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
               >
                 <span>★ Favorites</span>
-                <span className="px-1.5 py-0.5 text-xs rounded-full font-medium bg-primary/20 text-primary">0</span>
+                <span className="px-1.5 py-0.5 text-xs rounded-full font-medium bg-primary/20 text-primary">{dreams.filter(d => d.isFavorite).length}</span>
               </button>
               {/* Sort Toggle Button */}
               <button
@@ -158,6 +176,13 @@ function App() {
         onImport={handleImportDreams}
         onReset={handleResetAllDreams}
         hasDreams={dreams.length > 0}
+      />
+
+      {/* Add Dream Form */}
+      <DreamForm
+        isOpen={showAddDreamForm}
+        onClose={() => setShowAddDreamForm(false)}
+        onSave={handleAddDream}
       />
     </div>
   );

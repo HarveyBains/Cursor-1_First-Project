@@ -14,11 +14,11 @@ const DreamItem: React.FC<{ dream: DreamEntry }> = ({ dream }) => {
             {dream.icon || 'Neutral'}
           </span>
         </div>
-        <div className="flex-1 min-w-0 ml-1">
+        <div className="flex-1 ml-1 min-w-0">
           <div className="flex items-center justify-between">
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 flex flex-col flex-grow">
               <div className="flex items-center gap-2 mb-0.5">
-                <h3 className="font-semibold text-primary text-sm leading-tight">
+                <h3 className="font-semibold text-primary text-sm leading-tight break-words whitespace-normal">
                   {dream.name}
                 </h3>
               </div>
@@ -31,7 +31,7 @@ const DreamItem: React.FC<{ dream: DreamEntry }> = ({ dream }) => {
                   ))}
                 </div>
               </div>
-              <p className="text-muted-foreground text-xs mt-0.5 line-clamp-1 leading-tight">
+              <p className="text-muted-foreground text-xs mt-0.5 line-clamp-1 leading-tight min-w-0">
                 {dream.description}
               </p>
             </div>

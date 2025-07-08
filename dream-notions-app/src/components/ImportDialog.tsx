@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { parseImportMarkdown } from '../utils/importExportUtils';
 
 interface ImportDialogProps {
   isOpen: boolean;
@@ -22,8 +23,8 @@ const ImportDialog: React.FC<ImportDialogProps> = ({ isOpen, onClose, onImport, 
     setParseStatus('parsing');
 
     try {
-      // Placeholder for actual parsing logic
-      const dreams = importText.split('---').filter(Boolean).map(s => ({ id: Math.random().toString(), name: s.substring(0, 20) + '...' })); // Dummy parsing
+      // Use the real parser for full dream titles
+      const dreams = parseImportMarkdown(importText);
       
       if (dreams.length === 0) {
         setParseStatus('error');
