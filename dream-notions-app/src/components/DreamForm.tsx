@@ -19,14 +19,39 @@ interface DreamFormProps {
   onClose: () => void;
   onSave: (dream: DreamEntry) => void;
   dreamToEdit?: DreamEntry | null;
+  taskTitles: string[];
+  allTags: string[];
 }
 
-const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToEdit }) => {
+const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToEdit, taskTitles, allTags }) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [isFavorite, setIsFavorite] = useState(false);
   const [tags, setTags] = useState('');
   const [iconColor, setIconColor] = useState(''); // Default to no color
+  const [nameSuggestions, setNameSuggestions] = useState<string[]>([]);
+  const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
+  const [focusedSuggestionIndex, setFocusedSuggestionIndex] = useState(-1);
+
+  // Helper to parse DD/MM/YY from string
+  const parseDateFromDDMMYY = (dateString: string): number | null => {
+    const match = dateString.match(/^(\d{2})\/(\d{2})\/(\d{2})/);
+    if (match) {
+      const day = parseInt(match[1], 10);
+      const month = parseInt(match[2], 10) - 1; // Month is 0-indexed
+      let year = parseInt(match[3], 10);
+
+      // Handle two-digit years
+      year = year >= 70 ? 1900 + year : 2000 + year;
+
+      const date = new Date(year, month, day);
+      // Check for valid date (e.g., 31/02/2000 would be invalid)
+      if (date.getDate() === day && date.getMonth() === month && date.getFullYear() === year) {
+        return date.getTime();
+      }
+    }
+    return null;
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -47,8 +72,30 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
         setTags('');
         setIconColor('');
       }
+      setNameSuggestions([]); // Clear suggestions when form opens
+      setTagSuggestions([]);
     }
   }, [isOpen, dreamToEdit]);
+
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const inputValue = e.target.value;
+    setName(inputValue);
+
+    // Filter suggestions based on input value
+    if (inputValue.length > 2) { // Only show suggestions after 2 characters
+      const filtered = taskTitles.filter(title =>
+        title.toLowerCase().includes(inputValue.toLowerCase())
+      );
+      setNameSuggestions(filtered);
+    } else {
+      setNameSuggestions([]);
+    }
+  };
+
+  const handleNameSuggestionClick = (suggestion: string) => {
+    setName(suggestion);
+    setNameSuggestions([]); // Clear suggestions after selection
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,7 +104,7 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
     const dreamData: DreamEntry = {
       id: dreamToEdit?.id || Date.now().toString(),
       name: name.trim(),
-      timestamp: dreamToEdit?.timestamp || Date.now(),
+      timestamp: parseDateFromDDMMYY(name.trim()) || dreamToEdit?.timestamp || Date.now(),
       description: description.trim() || undefined,
       isFavorite,
       tags: tags.split(',').map(tag => tag.trim()).filter(tag => tag !== ''),
@@ -81,10 +128,23 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
               id="name"
               className="w-full p-2 border border-border rounded-md bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={handleNameChange}
               required
               style={{ color: 'black' }}
             />
+            {nameSuggestions.length > 0 && (
+              <div className="absolute z-10 bg-card border border-border rounded-md shadow-lg mt-1 w-full max-h-48 overflow-y-auto">
+                {nameSuggestions.map((suggestion, index) => (
+                  <div
+                    key={index}
+                    className="p-2 cursor-pointer hover:bg-muted text-foreground"
+                    onClick={() => handleNameSuggestionClick(suggestion)}
+                  >
+                    {suggestion}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <div className="mb-4">
             <label htmlFor="description" className="block text-sm font-medium text-muted-foreground mb-1">Description</label>
@@ -127,10 +187,108 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
               id="tags"
               className="w-full p-2 border border-border rounded-md bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               value={tags}
-              onChange={(e) => setTags(e.target.value)}
+              onChange={(e) => {
+                const inputValue = e.target.value;
+                setTags(inputValue);
+                const lastCommaIndex = inputValue.lastIndexOf(',');
+                const currentTyping = lastCommaIndex !== -1 ? inputValue.substring(lastCommaIndex + 1).trim() : inputValue.trim();
+
+                if (currentTyping.length > 0) {
+                  const filtered = allTags.filter(tag =>
+                    tag.toLowerCase().startsWith(currentTyping.toLowerCase())
+                  );
+                  setTagSuggestions(filtered);
+                } else {
+                  setTagSuggestions([]);
+                }
+              }}
+              onKeyDown={(e) => {
+                if (tagSuggestions.length > 0) {
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setFocusedSuggestionIndex(prevIndex => (prevIndex + 1) % tagSuggestions.length);
+                  } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setFocusedSuggestionIndex(prevIndex => (prevIndex - 1 + tagSuggestions.length) % tagSuggestions.length);
+                  } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (focusedSuggestionIndex !== -1) {
+                      const suggestion = tagSuggestions[focusedSuggestionIndex];
+                      const currentTagsArray = tags.split(',').map(t => t.trim());
+                      const lastTagIndex = currentTagsArray.length - 1;
+                      if (currentTagsArray[lastTagIndex] !== '') {
+                        currentTagsArray[lastTagIndex] = suggestion;
+                      } else if (lastTagIndex === 0) {
+                        currentTagsArray[lastTagIndex] = suggestion;
+                      } else {
+                        currentTagsArray.push(suggestion);
+                      }
+                      setTags(currentTagsArray.join(', '));
+                      setTagSuggestions([]);
+                      setFocusedSuggestionIndex(-1);
+                    }
+                  } else if (e.key === 'Tab') {
+                    e.preventDefault();
+                    if (focusedSuggestionIndex !== -1) {
+                      const suggestion = tagSuggestions[focusedSuggestionIndex];
+                      const currentTagsArray = tags.split(',').map(t => t.trim());
+                      const lastTagIndex = currentTagsArray.length - 1;
+                      if (currentTagsArray[lastTagIndex] !== '') {
+                        currentTagsArray[lastTagIndex] = suggestion;
+                      } else if (lastTagIndex === 0) {
+                        currentTagsArray[lastTagIndex] = suggestion;
+                      } else {
+                        currentTagsArray.push(suggestion);
+                      }
+                      setTags(currentTagsArray.join(', '));
+                      setTagSuggestions([]);
+                      setFocusedSuggestionIndex(-1);
+                    } else if (tagSuggestions.length > 0) {
+                      // If no suggestion is focused, but there are suggestions, select the first one
+                      const suggestion = tagSuggestions[0];
+                      const currentTagsArray = tags.split(',').map(t => t.trim());
+                      const lastTagIndex = currentTagsArray.length - 1;
+                      if (currentTagsArray[lastTagIndex] !== '') {
+                        currentTagsArray[lastTagIndex] = suggestion;
+                      } else if (lastTagIndex === 0) {
+                        currentTagsArray[lastTagIndex] = suggestion;
+                      } else {
+                        currentTagsArray.push(suggestion);
+                      }
+                      setTags(currentTagsArray.join(', '));
+                      setTagSuggestions([]);
+                      setFocusedSuggestionIndex(-1);
+                    }
+                  }
+                }
+              }}
               placeholder="e.g., vivid, recurring, nightmare"
               style={{ color: 'black' }}
             />
+            {tagSuggestions.length > 0 && (
+              <div className="absolute z-10 bg-card border border-border rounded-md shadow-lg mt-1 w-full max-h-48 overflow-y-auto">
+                {tagSuggestions.map((suggestion, index) => (
+                  <div
+                    key={index}
+                    className={`p-2 cursor-pointer hover:bg-muted text-foreground ${index === focusedSuggestionIndex ? 'bg-muted' : ''}`}
+                    onClick={() => {
+                      const currentTags = tags.split(',').map(t => t.trim());
+                      const lastTagPart = currentTags[currentTags.length - 1];
+                      if (currentTags.length > 0 && lastTagPart !== '') {
+                        currentTags[currentTags.length - 1] = suggestion;
+                        setTags(currentTags.join(', '));
+                      } else {
+                        setTags(prevTags => (prevTags ? `${prevTags}, ${suggestion}` : suggestion));
+                      }
+                      setTagSuggestions([]);
+                      setFocusedSuggestionIndex(-1);
+                    }}
+                  >
+                    {suggestion}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <div className="flex justify-end gap-3">
             <button

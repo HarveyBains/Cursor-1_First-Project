@@ -99,9 +99,7 @@ const DreamItem: React.FC<DreamItemProps> = ({ dream, index, onToggleFavorite, o
           >
             <div className="w-5 h-5 rounded-full bg-gray-200 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 shadow-sm" />
           </div>
-          <span className="text-xs text-muted-foreground text-center leading-none w-12 truncate min-h-[1em]">
-            {dream.icon || 'Neutral'}
-          </span>
+          
         </div>
         <div className="flex-1 ml-1 min-w-0">
           <div className="flex items-center justify-between">
