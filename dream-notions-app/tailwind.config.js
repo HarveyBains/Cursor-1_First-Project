@@ -14,6 +14,7 @@ export default {
         muted: 'hsl(var(--color-muted))',
         'muted-foreground': 'hsl(var(--color-muted-foreground))',
         border: 'hsl(var(--color-border))',
+        input: 'hsl(var(--color-input))',
       }
     },
   },

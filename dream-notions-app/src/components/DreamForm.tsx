@@ -65,8 +65,8 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
       } else {
         // Reset form for new dream
         const today = new Date();
-        const formattedDate = today.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
-        setName(`${formattedDate} - `);
+        const formattedDate = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}-`;
+        setName(`${formattedDate} `);
         setDescription('');
         setIsFavorite(false);
         setTags('');
@@ -118,7 +118,7 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-card p-6 rounded-lg shadow-xl w-full max-w-md border border-border">
+      <div className="bg-muted p-6 rounded-lg shadow-xl w-full max-w-md border border-border">
         <h2 className="text-xl font-semibold mb-4 text-foreground">{dreamToEdit ? 'Edit Dream' : 'Add New Dream'}</h2>
         <form onSubmit={handleSubmit}>
           <div className="mb-4">

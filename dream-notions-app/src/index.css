@@ -11,6 +11,7 @@
     --color-muted: 0 0% 94%;           /* Light gray for muted elements (HSL) */
     --color-muted-foreground: 0 0% 47%;/* Darker gray for muted text (HSL) */
     --color-border: 0 0% 86%;          /* Light gray for borders (HSL) */
+    --color-input: 0 0% 95%;           /* Light grey for input fields (HSL) */
   }
 
   html {
@@ -29,5 +30,6 @@
     --color-muted: 240 5% 20%;            /* Darker muted grey */
     --color-muted-foreground: 240 5% 70%; /* Lighter muted grey */
     --color-border: 240 5% 25%;           /* Slightly lighter border */
+    --color-input: 240 5% 15%;            /* Dark grey for input fields (HSL) */
   }
 }

@@ -2,6 +2,8 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import DreamItem from './components/DreamItem';
 import ImportDialog from './components/ImportDialog';
 import DreamForm from './components/DreamForm';
+import DeleteConfirmDialog from './components/DeleteConfirmDialog';
+import TagBreadcrumbs from './components/TagBreadcrumbs';
 import { DragDropProvider } from './components/DragDropProvider';
 import { saveToLocalStorage, loadFromLocalStorage } from './utils/localStorageUtils';
 import { exportDreams } from './utils/importExportUtils';
@@ -18,6 +20,9 @@ function App() {
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [showAddDreamForm, setShowAddDreamForm] = useState(false);
   const [selectedDream, setSelectedDream] = useState<DreamEntry | null>(null);
+  const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
+  const [dreamToDeleteId, setDreamToDeleteId] = useState<string | null>(null);
+  const [showDeleteAllConfirmDialog, setShowDeleteAllConfirmDialog] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     // Initialize from localStorage or default to true (dark mode)
     const savedTheme = localStorage.getItem('theme');
@@ -42,9 +47,19 @@ function App() {
   }, [dreams]);
 
   useEffect(() => {
-    // Initialize visible tags with top-level tags when component mounts or dreams change
-    setCurrentVisibleTags(getTopLevelTags(allUniqueTags));
-  }, [allUniqueTags]);
+    // Initialize visible tags with top-level tags when component mounts or activeTagFilter is null
+    if (!activeTagFilter) {
+      setCurrentVisibleTags(getTopLevelTags(allUniqueTags));
+    } else {
+      // If a tag filter is active, ensure currentVisibleTags reflects its children or itself
+      const children = getChildTags(allUniqueTags, activeTagFilter);
+      if (children.length > 0) {
+        setCurrentVisibleTags(children);
+      } else {
+        setCurrentVisibleTags([activeTagFilter]);
+      }
+    }
+  }, [allUniqueTags, activeTagFilter]);
 
   // Helper to get top-level tags
   const getTopLevelTags = (tags: string[]): string[] => {
@@ -91,6 +106,7 @@ function App() {
 
   const handleResetAllDreams = () => {
     setDreams([]);
+    setShowImportDialog(false);
   };
 
   const handleAddDream = (newDream: DreamEntry) => {
@@ -109,6 +125,24 @@ function App() {
 
   const handleClearAllDreams = () => {
     setDreams([]);
+    setShowDeleteAllConfirmDialog(false);
+  };
+
+  const confirmDeleteAllDreams = () => {
+    setShowDeleteAllConfirmDialog(true);
+  };
+
+  const handleDeleteDream = () => {
+    if (dreamToDeleteId) {
+      setDreams(prevDreams => prevDreams.filter(dream => dream.id !== dreamToDeleteId));
+      setDreamToDeleteId(null);
+      setShowDeleteConfirmDialog(false);
+    }
+  };
+
+  const confirmDeleteDream = (id: string) => {
+    setDreamToDeleteId(id);
+    setShowDeleteConfirmDialog(true);
   };
 
   const handleToggleFavorite = (id: string) => {
@@ -220,6 +254,12 @@ function App() {
               onClick={user ? signOutUser : signInWithGoogle}
               className="flex items-center gap-1.5 px-2.5 py-1.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded transition-colors text-xs whitespace-nowrap"
             >
+              {user && user.photoURL && (
+                <img src={user.photoURL} alt="User Avatar" className="w-5 h-5 rounded-full" />
+              )}
+              {user && user.displayName && (
+                <span className="hidden sm:inline">{user.displayName.split(' ')[0]}</span>
+              )}
               <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
                 <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                 <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -261,7 +301,7 @@ function App() {
                 </button>
                 {/* Delete All Dreams Button */}
                 <button
-                  onClick={handleClearAllDreams}
+                  onClick={confirmDeleteAllDreams}
                   className="px-3 py-2 rounded-lg text-xs transition-colors font-medium flex items-center gap-1.5 border bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -298,7 +338,7 @@ function App() {
                 onClick={() => setActiveFilter(activeFilter === 'favorites' ? 'all' : 'favorites')}
                 className={`px-3 py-1 text-xs rounded-full transition-colors flex items-center gap-1.5 ${activeFilter === 'favorites' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
               >
-                <span>★ Favorites</span>
+                <span>Favorites</span>
                 <span className="px-1.5 py-0.5 text-xs rounded-full font-medium bg-primary/20 text-primary">{dreams.filter(d => d.isFavorite).length}</span>
               </button>
               {/* Sort Toggle Button */}
@@ -356,6 +396,9 @@ function App() {
           </div>
         </div>
 
+        {/* Tag Breadcrumbs */}
+        <TagBreadcrumbs activeTagFilter={activeTagFilter} setActiveTagFilter={setActiveTagFilter} recordCount={filteredDreams.length} />
+
         {/* Dream List */}
         <DragDropProvider>
           <div>
@@ -367,6 +410,7 @@ function App() {
               onToggleFavorite={handleToggleFavorite}
               onMove={moveDream}
               onEdit={(dreamToEdit) => { setSelectedDream(dreamToEdit); setShowAddDreamForm(true); }}
+              onDelete={confirmDeleteDream}
             />
             ))}
           </div>
@@ -390,6 +434,20 @@ function App() {
         dreamToEdit={selectedDream}
         taskTitles={taskTitles}
         allTags={allTags}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmDialog
+        isOpen={showDeleteConfirmDialog}
+        onClose={() => setShowDeleteConfirmDialog(false)}
+        onConfirm={handleDeleteDream}
+      />
+
+      {/* Delete All Confirmation Dialog */}
+      <DeleteConfirmDialog
+        isOpen={showDeleteAllConfirmDialog}
+        onClose={() => setShowDeleteAllConfirmDialog(false)}
+        onConfirm={handleClearAllDreams}
       />
     </div>
   );

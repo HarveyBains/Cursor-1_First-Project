@@ -8,6 +8,7 @@ interface DreamItemProps {
   onToggleFavorite: (id: string) => void;
   onMove: (dragIndex: number, hoverIndex: number) => void;
   onEdit: (dream: DreamEntry) => void;
+  onDelete: (id: string) => void;
 }
 
 interface DragItem {
@@ -18,7 +19,7 @@ interface DragItem {
 
 const ITEM_TYPE = 'dream';
 
-const DreamItem: React.FC<DreamItemProps> = ({ dream, index, onToggleFavorite, onMove, onEdit }) => {
+const DreamItem: React.FC<DreamItemProps> = ({ dream, index, onToggleFavorite, onMove, onEdit, onDelete }) => {
   const ref = useRef<HTMLDivElement>(null);
 
   const [{ handlerId }, drop] = useDrop<DragItem, void, { handlerId: string | symbol | null }>({ // Explicitly define the type for the collected properties
@@ -94,10 +95,9 @@ const DreamItem: React.FC<DreamItemProps> = ({ dream, index, onToggleFavorite, o
       <div className="flex items-center gap-1.5">
         <div className="flex-shrink-0 w-12 flex flex-col items-center">
           <div className="text-muted-foreground text-xs leading-none mb-0.5">⋮⋮</div>
-          <div className="w-7 h-7 rounded-full flex items-center justify-center mb-0.5 flex-shrink-0 overflow-hidden"
+          <div className="w-7 h-7 rounded-full flex items-center justify-center mb-0.5 flex-shrink-0 overflow-hidden text-white"
             style={dream.iconColor ? { backgroundColor: dream.iconColor } : {}} // Apply background only if color is set
           >
-            <div className="w-5 h-5 rounded-full bg-gray-200 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 shadow-sm" />
           </div>
           
         </div>
@@ -134,7 +134,9 @@ const DreamItem: React.FC<DreamItemProps> = ({ dream, index, onToggleFavorite, o
               >
                 <span className="text-xs">✏️</span>
               </button>
-              <button className="p-1 rounded-full hover:bg-red-500/10 text-red-500 hover:text-red-600 transition-colors">
+              <button className="p-1 rounded-full hover:bg-red-500/10 text-red-500 hover:text-red-600 transition-colors"
+                onClick={() => onDelete(dream.id)}
+              >
                 <span className="text-xs">🗑️</span>
               </button>
             </div>
