@@ -6,6 +6,7 @@ export interface DreamEntry {
   isFavorite?: boolean;
   tags?: string[];
   icon?: string;
+  iconColor?: string;
   displayOrder?: number;
   userId?: string;
 }

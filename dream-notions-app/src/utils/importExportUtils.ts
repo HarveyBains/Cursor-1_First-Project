@@ -68,7 +68,13 @@ export const parseImportMarkdown = (markdownText: string): DreamEntry[] => {
       const month = parseInt(dateStr.substring(2, 4)) - 1; // JS months are 0-indexed
       const year = parseInt(dateStr.substring(4, 8));
       
-      const date = new Date(year, month, day, hours, minutes);
+      // Handle two-digit years: YY >= 70 -> 19YY, YY < 70 -> 20YY
+      let fullYear = year;
+      if (year < 100) { // Check if it's a two-digit year
+        fullYear = year >= 70 ? 1900 + year : 2000 + year;
+      }
+      
+      const date = new Date(fullYear, month, day, hours, minutes);
       if (!isNaN(date.getTime())) {
         timestamp = date.getTime();
       }

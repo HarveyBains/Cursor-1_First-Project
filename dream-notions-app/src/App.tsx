@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import DreamItem from './components/DreamItem';
 import ImportDialog from './components/ImportDialog';
 import DreamForm from './components/DreamForm';
+import { DragDropProvider } from './components/DragDropProvider';
 import { saveToLocalStorage, loadFromLocalStorage } from './utils/localStorageUtils';
 import { exportDreams } from './utils/importExportUtils';
 import './index.css';
@@ -10,16 +11,18 @@ import type { DreamEntry } from './types/DreamEntry';
 function App() {
   const [dreams, setDreams] = useState<DreamEntry[]>(() => {
     const loadedDreams = loadFromLocalStorage('dreams_local', []);
-    console.log('Loaded dreams from local storage:', loadedDreams);
     return loadedDreams;
   });
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [showAddDreamForm, setShowAddDreamForm] = useState(false);
+  const [selectedDream, setSelectedDream] = useState<DreamEntry | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     // Initialize from localStorage or default to true (dark mode)
     const savedTheme = localStorage.getItem('theme');
     return savedTheme ? JSON.parse(savedTheme) : true;
   });
+  const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'favorites', 'recents'
+  const [sortOrder, setSortOrder] = useState('manual'); // 'manual', 'newest', 'oldest'
 
   useEffect(() => {
     if (isDarkMode) {
@@ -46,12 +49,29 @@ function App() {
   };
 
   const handleAddDream = (newDream: DreamEntry) => {
-    setDreams((prevDreams) => [...prevDreams, newDream]);
+    setDreams((prevDreams) => {
+      if (newDream.id && prevDreams.some(d => d.id === newDream.id)) {
+        // Update existing dream
+        return prevDreams.map(dream => dream.id === newDream.id ? newDream : dream);
+      } else {
+        // Add new dream
+        return [...prevDreams, { ...newDream, id: Date.now().toString(), timestamp: Date.now() }];
+      }
+    });
     setShowAddDreamForm(false);
+    setSelectedDream(null);
   };
 
   const handleClearAllDreams = () => {
     setDreams([]);
+  };
+
+  const handleToggleFavorite = (id: string) => {
+    setDreams(prevDreams =>
+      prevDreams.map(dream =>
+        dream.id === id ? { ...dream, isFavorite: !dream.isFavorite } : dream
+      )
+    );
   };
 
   const handleExportDreams = () => {
@@ -61,6 +81,42 @@ function App() {
   const toggleTheme = () => {
     setIsDarkMode((prevMode: boolean) => !prevMode);
   };
+
+  const toggleSortOrder = () => {
+    setSortOrder(prevOrder => {
+      if (prevOrder === 'manual') return 'newest';
+      if (prevOrder === 'newest') return 'oldest';
+      return 'manual';
+    });
+  };
+
+  const moveDream = useCallback((dragIndex: number, hoverIndex: number) => {
+    setDreams((prevDreams) => {
+      const newDreams = [...prevDreams];
+      const [draggedDream] = newDreams.splice(dragIndex, 1);
+      newDreams.splice(hoverIndex, 0, draggedDream);
+      return newDreams.map((dream, index) => ({ ...dream, displayOrder: index }));
+    });
+  }, []);
+
+  const filteredDreams = useMemo(() => {
+    let currentDreams = dreams.filter(dream => {
+      if (activeFilter === 'favorites') {
+        return dream.isFavorite;
+      } else if (activeFilter === 'recents') {
+        const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+        return dream.timestamp >= sevenDaysAgo;
+      }
+      return true; // 'all' filter
+    });
+
+    if (sortOrder === 'newest') {
+      currentDreams.sort((a, b) => b.timestamp - a.timestamp);
+    } else if (sortOrder === 'oldest') {
+      currentDreams.sort((a, b) => a.timestamp - b.timestamp);
+    }
+    return currentDreams;
+  }, [dreams, activeFilter, sortOrder]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -160,7 +216,7 @@ function App() {
               </div>
               {/* Add Notion Button */}
               <button
-                onClick={() => setShowAddDreamForm(true)}
+                onClick={() => { setSelectedDream(null); setShowAddDreamForm(true); }}
                 className="bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-lg text-sm transition-colors font-medium whitespace-nowrap"
               >
                 Add Notion
@@ -175,35 +231,47 @@ function App() {
             <div className="flex items-center gap-3">
               {/* Recents Button */}
               <button
-                className="px-3 py-1 text-xs rounded-full transition-colors flex items-center gap-1.5 bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                onClick={() => setActiveFilter(activeFilter === 'recents' ? 'all' : 'recents')}
+                className={`px-3 py-1 text-xs rounded-full transition-colors flex items-center gap-1.5 ${activeFilter === 'recents' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
               >
                 <span>🕐 Recents</span>
                 <span className="px-1.5 py-0.5 text-xs rounded-full font-medium bg-primary/20 text-primary">{dreams.length}</span>
               </button>
               {/* Favorites Button */}
               <button
-                className="px-3 py-1 text-xs rounded-full transition-colors flex items-center gap-1.5 bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                onClick={() => setActiveFilter(activeFilter === 'favorites' ? 'all' : 'favorites')}
+                className={`px-3 py-1 text-xs rounded-full transition-colors flex items-center gap-1.5 ${activeFilter === 'favorites' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
               >
                 <span>★ Favorites</span>
                 <span className="px-1.5 py-0.5 text-xs rounded-full font-medium bg-primary/20 text-primary">{dreams.filter(d => d.isFavorite).length}</span>
               </button>
               {/* Sort Toggle Button */}
               <button
+                onClick={toggleSortOrder}
                 className="px-3 py-1 text-xs rounded-full transition-colors flex items-center gap-1.5 bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
               >
                 <span>⋮⋮</span>
-                <span>Manual</span>
+                <span>{sortOrder.charAt(0).toUpperCase() + sortOrder.slice(1)}</span>
               </button>
             </div>
           </div>
         </div>
 
         {/* Dream List */}
-        <div>
-          {dreams.map((dream) => (
-            <DreamItem key={dream.id} dream={dream} />
-          ))}
-        </div>
+        <DragDropProvider>
+          <div>
+            {filteredDreams.map((dream, index) => (
+              <DreamItem
+              key={dream.id}
+              dream={dream}
+              index={index}
+              onToggleFavorite={handleToggleFavorite}
+              onMove={moveDream}
+              onEdit={(dreamToEdit) => { setSelectedDream(dreamToEdit); setShowAddDreamForm(true); }}
+            />
+            ))}
+          </div>
+        </DragDropProvider>
       </main>
 
       {/* Import Dialog */}
@@ -218,8 +286,9 @@ function App() {
       {/* Add Dream Form */}
       <DreamForm
         isOpen={showAddDreamForm}
-        onClose={() => setShowAddDreamForm(false)}
+        onClose={() => { setShowAddDreamForm(false); setSelectedDream(null); }}
         onSave={handleAddDream}
+        dreamToEdit={selectedDream}
       />
     </div>
   );
