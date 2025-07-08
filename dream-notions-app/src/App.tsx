@@ -23,6 +23,40 @@ function App() {
   });
   const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'favorites', 'recents'
   const [sortOrder, setSortOrder] = useState('manual'); // 'manual', 'newest', 'oldest'
+  const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null);
+  const [currentVisibleTags, setCurrentVisibleTags] = useState<string[]>([]);
+
+  const allUniqueTags = useMemo(() => {
+    return Array.from(new Set(dreams.flatMap(dream => dream.tags || [])));
+  }, [dreams]);
+
+  useEffect(() => {
+    // Initialize visible tags with top-level tags when component mounts or dreams change
+    setCurrentVisibleTags(getTopLevelTags(allUniqueTags));
+  }, [allUniqueTags]);
+
+  // Helper to get top-level tags
+  const getTopLevelTags = (tags: string[]): string[] => {
+    const topLevels = new Set<string>();
+    tags.forEach(tag => {
+      topLevels.add(tag.split('/')[0]);
+    });
+    return Array.from(topLevels).sort();
+  };
+
+  // Helper to get direct children of a given parent tag
+  const getChildTags = (tags: string[], parentTag: string): string[] => {
+    const children = new Set<string>();
+    tags.forEach(tag => {
+      if (tag.startsWith(`${parentTag}/`)) {
+        const parts = tag.split('/');
+        if (parts.length > parentTag.split('/').length) {
+          children.add(parts.slice(0, parentTag.split('/').length + 1).join('/'));
+        }
+      }
+    });
+    return Array.from(children).sort();
+  };
 
   useEffect(() => {
     if (isDarkMode) {
@@ -75,7 +109,9 @@ function App() {
   };
 
   const handleExportDreams = () => {
-    exportDreams(dreams);
+    // Ensure exported dreams are always sorted newest first
+    const dreamsToExport = [...filteredDreams].sort((a, b) => b.timestamp - a.timestamp);
+    exportDreams(dreamsToExport);
   };
 
   const toggleTheme = () => {
@@ -104,11 +140,17 @@ function App() {
       if (activeFilter === 'favorites') {
         return dream.isFavorite;
       } else if (activeFilter === 'recents') {
-        const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
-        return dream.timestamp >= sevenDaysAgo;
+        const twentyFourHoursAgo = Date.now() - (24 * 60 * 60 * 1000);
+        return dream.timestamp >= twentyFourHoursAgo;
       }
       return true; // 'all' filter
     });
+
+    if (activeTagFilter) {
+      currentDreams = currentDreams.filter(dream => 
+        dream.tags?.some(tag => tag.startsWith(activeTagFilter))
+      );
+    }
 
     if (sortOrder === 'newest') {
       currentDreams.sort((a, b) => b.timestamp - a.timestamp);
@@ -116,7 +158,7 @@ function App() {
       currentDreams.sort((a, b) => a.timestamp - b.timestamp);
     }
     return currentDreams;
-  }, [dreams, activeFilter, sortOrder]);
+  }, [dreams, activeFilter, sortOrder, activeTagFilter]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -153,7 +195,9 @@ function App() {
           <div className="flex items-center gap-2 w-16 sm:w-20 sm:min-w-[120px] justify-end flex-shrink-0">
             {/* List Planner notepad icon */}
             <button
+              onClick={() => alert('List Planner functionality coming soon!')}
               className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="List Planner"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
@@ -254,6 +298,49 @@ function App() {
                 <span>{sortOrder.charAt(0).toUpperCase() + sortOrder.slice(1)}</span>
               </button>
             </div>
+          </div>
+        </div>
+
+        {/* Tag Filters */}
+        <div className="mb-8">
+          <div className="flex flex-wrap justify-center gap-2">
+            {activeTagFilter && (
+              <button
+                onClick={() => {
+                  const parentTag = activeTagFilter.includes('/')
+                    ? activeTagFilter.substring(0, activeTagFilter.lastIndexOf('/'))
+                    : null;
+                  setActiveTagFilter(parentTag);
+                  setCurrentVisibleTags(parentTag ? getChildTags(allUniqueTags, parentTag) : getTopLevelTags(allUniqueTags));
+                }}
+                className="px-3 py-1 text-xs rounded-full transition-colors bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+              >
+                ← Back
+              </button>
+            )}
+            {currentVisibleTags.map(tag => (
+              <button
+                key={tag}
+                onClick={() => {
+                  if (activeTagFilter === tag) {
+                    setActiveTagFilter(null);
+                    setCurrentVisibleTags(getTopLevelTags(allUniqueTags));
+                  } else {
+                    setActiveTagFilter(tag);
+                    const children = getChildTags(allUniqueTags, tag);
+                    if (children.length > 0) {
+                      setCurrentVisibleTags(children);
+                    } else {
+                      // If no children, stay on current level but filter
+                      // The filter will apply based on activeTagFilter
+                    }
+                  }
+                }}
+                className={`px-3 py-1 text-xs rounded-full transition-colors ${activeTagFilter === tag ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
+              >
+                {tag.split('/').pop()}
+              </button>
+            ))}
           </div>
         </div>
 
