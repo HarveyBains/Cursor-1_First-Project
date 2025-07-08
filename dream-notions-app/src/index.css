@@ -4,13 +4,21 @@
 
 @layer base {
   :root {
-    --color-background: 250 249 247;    /* Warm cream */
-    --color-foreground: 45 41 38;       /* Dark brown */
-    --color-primary: 247 117 54;        /* Vibrant orange */
-    --color-card: 255 255 255;          /* Pure white */
-    --color-muted: 240 240 240;         /* Light gray for muted elements */
-    --color-muted-foreground: 120 120 120; /* Darker gray for muted text */
-    --color-border: 220 220 220;         /* Light gray for borders */
+    --color-background: 40 44% 97%;    /* Warm cream (HSL) */
+    --color-foreground: 30 9% 16%;     /* Dark brown (HSL) */
+    --color-primary: 24 94% 59%;       /* Vibrant orange (HSL) */
+    --color-card: 0 0% 100%;           /* Pure white (HSL) */
+    --color-muted: 0 0% 94%;           /* Light gray for muted elements (HSL) */
+    --color-muted-foreground: 0 0% 47%;/* Darker gray for muted text (HSL) */
+    --color-border: 0 0% 86%;          /* Light gray for borders (HSL) */
+  }
+
+  html {
+    background-color: hsl(var(--color-background)) !important;
+  }
+
+  body {
+    background-color: hsl(var(--color-background)) !important;
   }
 
   .dark {

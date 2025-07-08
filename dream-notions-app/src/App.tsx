@@ -15,10 +15,22 @@ function App() {
   });
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [showAddDreamForm, setShowAddDreamForm] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    // Initialize from localStorage or default to true (dark mode)
+    const savedTheme = localStorage.getItem('theme');
+    return savedTheme ? JSON.parse(savedTheme) : true;
+  });
 
   useEffect(() => {
-    document.documentElement.classList.add('dark');
-  }, []);
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+      console.log('Applying dark mode');
+    } else {
+      document.documentElement.classList.remove('dark');
+      console.log('Applying light mode');
+    }
+    localStorage.setItem('theme', JSON.stringify(isDarkMode));
+  }, [isDarkMode]);
 
   useEffect(() => {
     saveToLocalStorage('dreams_local', dreams);
@@ -38,8 +50,16 @@ function App() {
     setShowAddDreamForm(false);
   };
 
+  const handleClearAllDreams = () => {
+    setDreams([]);
+  };
+
   const handleExportDreams = () => {
     exportDreams(dreams);
+  };
+
+  const toggleTheme = () => {
+    setIsDarkMode((prevMode: boolean) => !prevMode);
   };
 
   return (
@@ -49,12 +69,19 @@ function App() {
           {/* Left side - Theme Toggle */}
           <div className="w-16 sm:w-20 flex justify-start flex-shrink-0">
             <button 
+              onClick={toggleTheme}
               className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-              title="Switch to light mode"
+              title={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
             >
-              <svg className="w-4 h-4 text-purple-400" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
-              </svg>
+              {isDarkMode ? (
+                <svg className="w-4 h-4 text-purple-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 00-1.414-1.414l-.707.707a1 1 0 001.414 1.414l.707-.707zM10 18a1 1 0 01-1 1v1a1 1 0 112 0v-1a1 1 0 01-1-1zM3 10a1 1 0 01-1-1V8a1 1 0 112 0v1a1 1 0 01-1 1zm-.707 4.293a1 1 0 001.414 1.414l.707-.707a1 1 0 00-1.414-1.414l-.707.707zM17 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zm.707-4.293a1 1 0 00-1.414-1.414l-.707.707a1 1 0 001.414 1.414l.707-.707z" />
+                </svg>
+              )}
             </button>
           </div>
 
@@ -119,6 +146,16 @@ function App() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                   <span className="hidden sm:inline">Import</span>
+                </button>
+                {/* Delete All Dreams Button */}
+                <button
+                  onClick={handleClearAllDreams}
+                  className="px-3 py-2 rounded-lg text-xs transition-colors font-medium flex items-center gap-1.5 border bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  <span className="hidden sm:inline">Delete All</span>
                 </button>
               </div>
               {/* Add Notion Button */}
