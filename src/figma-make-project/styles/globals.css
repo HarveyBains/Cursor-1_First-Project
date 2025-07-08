@@ -1,0 +1,294 @@
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --font-size: 14px;
+  
+  /* Light Theme Colors - Matching PRD specifications */
+  --color-background: 250 249 247;     /* #faf9f7 - Warm cream */
+  --color-foreground: 45 41 38;        /* #2d2926 - Dark brown */
+  --color-primary: 247 117 54;         /* #f77536 - Vibrant orange */
+  --color-card: 255 255 255;           /* #ffffff - Pure white */
+  --color-muted: 240 237 232;          /* #f0ede8 - Muted cream */
+  --color-border: 139 135 128;         /* #8b8780 - Subtle brown */
+  
+  /* Standard variables */
+  --background: rgb(var(--color-background));
+  --foreground: rgb(var(--color-foreground));
+  --card: rgb(var(--color-card));
+  --card-foreground: rgb(var(--color-foreground));
+  --popover: rgb(var(--color-card));
+  --popover-foreground: rgb(var(--color-foreground));
+  --primary: rgb(var(--color-primary));
+  --primary-foreground: rgb(var(--color-card));
+  --secondary: rgb(var(--color-muted));
+  --secondary-foreground: rgb(var(--color-foreground));
+  --muted: rgb(var(--color-muted));
+  --muted-foreground: rgb(var(--color-border));
+  --accent: rgb(var(--color-muted));
+  --accent-foreground: rgb(var(--color-foreground));
+  --destructive: #d4183d;
+  --destructive-foreground: #ffffff;
+  --border: rgb(var(--color-border) / 0.3);
+  --input: transparent;
+  --input-background: rgb(var(--color-muted));
+  --switch-background: rgb(var(--color-border));
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --ring: rgb(var(--color-primary) / 0.3);
+  --chart-1: rgb(var(--color-primary));
+  --chart-2: #60a5fa;
+  --chart-3: #34d399;
+  --chart-4: #fbbf24;
+  --chart-5: #f472b6;
+  --radius: 0.375rem;
+  --sidebar: rgb(var(--color-background));
+  --sidebar-foreground: rgb(var(--color-foreground));
+  --sidebar-primary: rgb(var(--color-primary));
+  --sidebar-primary-foreground: rgb(var(--color-card));
+  --sidebar-accent: rgb(var(--color-muted));
+  --sidebar-accent-foreground: rgb(var(--color-foreground));
+  --sidebar-border: rgb(var(--color-border) / 0.3);
+  --sidebar-ring: rgb(var(--color-primary) / 0.3);
+}
+
+.dark {
+  /* Dark Theme Colors - Enhanced to match Breathing App design */
+  --color-background: 10 10 10;        /* #0a0a0a - Very deep dark */
+  --color-foreground: 240 240 240;     /* #f0f0f0 - High contrast white */
+  --color-primary: 139 92 246;         /* #8b5cf6 - Bright violet purple */
+  --color-card: 24 24 27;              /* #18181b - Dark zinc card */
+  --color-muted: 39 39 42;             /* #27272a - Medium zinc */
+  --color-border: 63 63 70;            /* #3f3f46 - Visible zinc border */
+  
+  --background: rgb(var(--color-background));
+  --foreground: rgb(var(--color-foreground));
+  --card: rgb(var(--color-card));
+  --card-foreground: rgb(var(--color-foreground));
+  --popover: rgb(var(--color-card));
+  --popover-foreground: rgb(var(--color-foreground));
+  --primary: rgb(var(--color-primary));
+  --primary-foreground: rgb(var(--color-background));
+  --secondary: rgb(var(--color-muted));
+  --secondary-foreground: rgb(var(--color-foreground));
+  --muted: rgb(var(--color-muted));
+  --muted-foreground: rgb(161 161 170); /* #a1a1aa - Higher contrast zinc */
+  --accent: rgb(var(--color-muted));
+  --accent-foreground: rgb(var(--color-foreground));
+  --destructive: #f87171;
+  --destructive-foreground: rgb(var(--color-foreground));
+  --border: rgb(var(--color-border));
+  --input: rgb(var(--color-muted));
+  --input-background: rgb(var(--color-muted));
+  --switch-background: rgb(var(--color-border));
+  --ring: rgb(var(--color-primary) / 0.4);
+  --chart-1: rgb(var(--color-primary));
+  --chart-2: #60a5fa;
+  --chart-3: #34d399;
+  --chart-4: #fbbf24;
+  --chart-5: #f472b6;
+  --sidebar: rgb(var(--color-card));
+  --sidebar-foreground: rgb(var(--color-foreground));
+  --sidebar-primary: rgb(var(--color-primary));
+  --sidebar-primary-foreground: rgb(var(--color-background));
+  --sidebar-accent: rgb(var(--color-muted));
+  --sidebar-accent-foreground: rgb(var(--color-foreground));
+  --sidebar-border: rgb(var(--color-border));
+  --sidebar-ring: rgb(var(--color-primary) / 0.4);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-switch-background: var(--switch-background);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground font-['Inter',system-ui,-apple-system,sans-serif];
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--color-border) / 0.7) rgb(var(--color-background));
+  }
+}
+
+/**
+ * Base typography. This is not applied to elements which have an ancestor with a Tailwind text class.
+ */
+@layer base {
+  :where(:not(:has([class*=" text-"]), :not(:has([class^="text-"])))) {
+    h1 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      line-height: 1.5;
+    }
+
+    h2 {
+      font-size: 1.125rem;
+      font-weight: 600;
+      line-height: 1.5;
+    }
+
+    h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      line-height: 1.5;
+    }
+
+    h4 {
+      font-size: 0.875rem;
+      font-weight: 600;
+      line-height: 1.5;
+    }
+
+    p {
+      font-size: 0.875rem;
+      font-weight: 400;
+      line-height: 1.5;
+    }
+
+    label {
+      font-size: 0.875rem;
+      font-weight: 500;
+      line-height: 1.5;
+    }
+
+    button {
+      font-size: 0.875rem;
+      font-weight: 500;
+      line-height: 1.5;
+    }
+
+    input {
+      font-size: 0.875rem;
+      font-weight: 400;
+      line-height: 1.5;
+    }
+
+    small {
+      font-size: 0.75rem;
+      font-weight: 500;
+      line-height: 1.4;
+    }
+  }
+}
+
+html {
+  font-size: var(--font-size);
+}
+
+/* Custom Scrollbar Styling */
+@layer base {
+  /* Global Webkit Scrollbars - Applied to all elements */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--color-border) / 0.6) rgb(var(--color-background));
+  }
+
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: rgb(var(--color-background));
+    border-radius: 4px;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: rgb(var(--color-border) / 0.6);
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+    border: 1px solid rgb(var(--color-background));
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: rgb(var(--color-border) / 0.8);
+  }
+
+  /* Specific styling for body and html to ensure main page scrollbar */
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar {
+    width: 10px;
+  }
+
+  html::-webkit-scrollbar-track,
+  body::-webkit-scrollbar-track {
+    background: rgb(var(--color-background));
+  }
+
+  html::-webkit-scrollbar-thumb,
+  body::-webkit-scrollbar-thumb {
+    background: rgb(var(--color-border) / 0.7);
+    border-radius: 5px;
+    border: 2px solid rgb(var(--color-background));
+  }
+
+  html::-webkit-scrollbar-thumb:hover,
+  body::-webkit-scrollbar-thumb:hover {
+    background: rgb(var(--color-border));
+  }
+
+  /* Enhanced scrollbar for tag areas */
+  .tag-scroll-area::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .tag-scroll-area::-webkit-scrollbar-track {
+    background: rgb(var(--color-muted) / 0.3);
+    border-radius: 3px;
+  }
+
+  .tag-scroll-area::-webkit-scrollbar-thumb {
+    background: rgb(var(--color-border) / 0.7);
+    border-radius: 3px;
+    transition: background-color 0.2s ease;
+    border: none;
+  }
+
+  .tag-scroll-area::-webkit-scrollbar-thumb:hover {
+    background: rgb(var(--color-border));
+  }
+
+  .tag-scroll-area {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--color-border) / 0.7) rgb(var(--color-muted) / 0.3);
+  }
+}

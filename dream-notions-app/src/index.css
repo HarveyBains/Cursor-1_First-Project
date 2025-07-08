@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-background: 250 249 247;    /* Warm cream */
+    --color-foreground: 45 41 38;       /* Dark brown */
+    --color-primary: 247 117 54;        /* Vibrant orange */
+    --color-card: 255 255 255;          /* Pure white */
+    --color-muted: 240 240 240;         /* Light gray for muted elements */
+    --color-muted-foreground: 120 120 120; /* Darker gray for muted text */
+    --color-border: 220 220 220;         /* Light gray for borders */
+  }
+
+  .dark {
+    --color-background: 240 5% 5%;       /* Very dark, slightly desaturated black */
+    --color-foreground: 240 5% 90%;    /* Light, slightly desaturated white/grey */
+    --color-primary: 270 70% 70%;        /* Vibrant, slightly desaturated purple */
+    --color-card: 240 5% 10%;             /* Dark grey, slightly lighter than background */
+    --color-muted: 240 5% 20%;            /* Darker muted grey */
+    --color-muted-foreground: 240 5% 70%; /* Lighter muted grey */
+    --color-border: 240 5% 25%;           /* Slightly lighter border */
+  }
+}
