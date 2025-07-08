@@ -1,10 +1,30 @@
-import React, { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import DreamItem from './components/DreamItem';
+import ImportDialog from './components/ImportDialog';
+import { saveToLocalStorage, loadFromLocalStorage } from './utils/localStorageUtils';
 import './index.css';
+import type { DreamEntry } from './types/DreamEntry';
 
 function App() {
+  const [dreams, setDreams] = useState<DreamEntry[]>(() => loadFromLocalStorage('dreams_local', []));
+  const [showImportDialog, setShowImportDialog] = useState(false);
+
   useEffect(() => {
     document.documentElement.classList.add('dark');
   }, []);
+
+  useEffect(() => {
+    saveToLocalStorage('dreams_local', dreams);
+  }, [dreams]);
+
+  const handleImportDreams = (importedDreams: DreamEntry[]) => {
+    setDreams(importedDreams);
+    setShowImportDialog(false);
+  };
+
+  const handleResetAllDreams = () => {
+    setDreams([]);
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -75,6 +95,7 @@ function App() {
                 </button>
                 {/* Import Button */}
                 <button
+                  onClick={() => setShowImportDialog(true)}
                   className="px-3 py-2 rounded-lg text-xs transition-colors font-medium flex items-center gap-1.5 border bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -93,9 +114,51 @@ function App() {
           </div>
         </div>
 
-        {/* Filter/Sort Controls will go here */}
-        {/* Dream List will go here */}
+        {/* Filter/Sort Controls */}
+        <div className="mb-8">
+          <div className="flex justify-center mb-6">
+            <div className="flex items-center gap-3">
+              {/* Recents Button */}
+              <button
+                className="px-3 py-1 text-xs rounded-full transition-colors flex items-center gap-1.5 bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+              >
+                <span>🕐 Recents</span>
+                <span className="px-1.5 py-0.5 text-xs rounded-full font-medium bg-primary/20 text-primary">0</span>
+              </button>
+              {/* Favorites Button */}
+              <button
+                className="px-3 py-1 text-xs rounded-full transition-colors flex items-center gap-1.5 bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+              >
+                <span>★ Favorites</span>
+                <span className="px-1.5 py-0.5 text-xs rounded-full font-medium bg-primary/20 text-primary">0</span>
+              </button>
+              {/* Sort Toggle Button */}
+              <button
+                className="px-3 py-1 text-xs rounded-full transition-colors flex items-center gap-1.5 bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+              >
+                <span>⋮⋮</span>
+                <span>Manual</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Dream List */}
+        <div>
+          {dreams.map((dream) => (
+            <DreamItem key={dream.id} dream={dream} />
+          ))}
+        </div>
       </main>
+
+      {/* Import Dialog */}
+      <ImportDialog
+        isOpen={showImportDialog}
+        onClose={() => setShowImportDialog(false)}
+        onImport={handleImportDreams}
+        onReset={handleResetAllDreams}
+        hasDreams={dreams.length > 0}
+      />
     </div>
   );
 }

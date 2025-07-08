@@ -34,4 +34,4 @@
 
 - In your plan also prompt me to do a git push at stages that you think would be worthwhile.
 
-- In your plan also suggest if the AI context memory needs to be cleared because some AI memories are limited and I want the AI to be focused and not hallucinate.
+- In your plan also suggest if the AI context memory needs to be cleared because some AI memories are limited and I want the AI to be focused and not hallucinate. Have you read all the source files? So are you ready to start creating my design plan?

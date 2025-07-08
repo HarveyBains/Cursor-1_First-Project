@@ -43,20 +43,23 @@ The development process is broken down into sequential phases, starting with UI 
 6.  **Dream Form (Static):** Create a static `DreamForm` component (the "Edit Notion" modal) with all its fields (title, description, icon selector, tag selector) as seen in `Screenshot-2 Edit-Form.png`.
 
 > **User Inspection:** After this phase, I will ask you to inspect the core UI to ensure it matches the visual reference before we proceed.
+> **Self-Correction:** I will perform an `npm run build` after each element is developed to catch compilation errors proactively.
 
 > **Git Checkpoint:** I will recommend a `git push` to save the static UI implementation.
 
 ### Phase 3: Local Logic & State Management
 
-1.  **Data Structures:** Define the `DreamEntry`, `TagNode`, and `CustomIconConfig` interfaces in a `types/index.ts` file.
-2.  **Local State:** Implement state management using React hooks (`useState`, `useEffect`) in `App.tsx` to manage a local list of dreams. For now, this will be powered by `localStorage` to simulate persistence.
-3.  **Add/Edit/Delete Logic:** Implement the core CRUD (Create, Read, Update, Delete) operations for dreams. All operations will only affect the local state.
-4.  **Form Logic:** Wire up the `DreamForm` component to add and edit dreams in the local state.
-5.  **Component Logic:** Implement the client-side logic for the `IconSelector` and `TagSelector` components.
+1.  **Data Structures:** Define the `DreamEntry`, `TagNode`, and `CustomIconConfig` interfaces in `src/types/DreamEntry.ts` and other relevant files.
+2.  **Initial Data Import:** Implement the `parseImportMarkdown` function to read and parse the provided `Data-Export.md` file. This data will be used to pre-populate the application's local state.
+3.  **Data Persistence (Local Storage):** Implement saving and loading of dream data to/from `localStorage` to ensure data persists across browser sessions. This will be integrated with the import/export functionality.
+4.  **Local State:** Implement state management using React hooks (`useState`, `useEffect`) in `App.tsx` to manage a local list of dreams, initially populated from `localStorage` or imported data.
+5.  **Add/Edit/Delete Logic:** Implement the core CRUD (Create, Read, Update, Delete) operations for dreams. All operations will only affect the local state and trigger `localStorage` updates.
+6.  **Form Logic:** Wire up the `DreamForm` component to add and edit dreams in the local state.
+7.  **Component Logic:** Implement the client-side logic for the `IconSelector` and `TagSelector` components.
 
-> **User Inspection:** I will ask you to test the local CRUD functionality (adding, editing, and deleting dreams) to confirm it works as expected.
+> **User Inspection:** I will ask you to confirm that the imported data is correctly displayed and persists after refreshing the browser, and that the local CRUD functionality (adding, editing, and deleting dreams) works as expected.
 
-> **Git Checkpoint:** A `git push` will be recommended to save this stable, locally-functional version of the app.
+> **Git Checkpoint:** A `git push` will be recommended to save this stable, locally-functional version of the app with imported data and persistence.
 
 ### Phase 4: Advanced Feature Implementation (Local)
 
