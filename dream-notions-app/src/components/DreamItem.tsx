@@ -5,7 +5,6 @@ import { useDrag, useDrop } from 'react-dnd';
 interface DreamItemProps {
   dream: DreamEntry;
   index: number;
-  onToggleFavorite: (id: string) => void;
   onMove: (dragIndex: number, hoverIndex: number) => void;
   onEdit: (dream: DreamEntry) => void;
   onDelete: (id: string) => void;
@@ -19,7 +18,7 @@ interface DragItem {
 
 const ITEM_TYPE = 'dream';
 
-const DreamItem: React.FC<DreamItemProps> = ({ dream, index, onToggleFavorite, onMove, onEdit, onDelete }) => {
+const DreamItem: React.FC<DreamItemProps> = ({ dream, index, onMove, onEdit, onDelete }) => {
   const ref = useRef<HTMLDivElement>(null);
 
   const [{ handlerId }, drop] = useDrop<DragItem, void, { handlerId: string | symbol | null }>({ // Explicitly define the type for the collected properties
@@ -110,12 +109,12 @@ const DreamItem: React.FC<DreamItemProps> = ({ dream, index, onToggleFavorite, o
         </div>
         <div className="flex-1 ml-1 min-w-0">
           <div className="flex items-center justify-between">
-            <div className="flex-1 flex flex-col flex-grow">
-              <h3 className="font-semibold text-primary text-sm leading-tight break-words whitespace-normal mb-0.5">
-                {formattedDate} - {dream.name}
-              </h3>
-              <div className="flex items-center gap-1 mb-0.5 overflow-hidden">
-                <div className="flex gap-1 min-w-0 flex-shrink">
+            <div className="flex-1 flex flex-col flex-grow min-w-0">
+              <div className="flex items-center gap-2 mb-0.5 min-w-0 flex-wrap">
+                <h3 className="font-semibold text-primary text-sm leading-tight break-words whitespace-normal min-w-0 flex-shrink">
+                  {formattedDate} - {dream.name}
+                </h3>
+                <div className="flex gap-1 flex-wrap min-w-0">
                   {dream.tags && dream.tags.map((tag, index) => (
                     <span key={index} className="px-1.5 py-0.5 text-xs rounded-full font-medium whitespace-nowrap flex-shrink-0 bg-primary/10 text-primary border border-primary/20">
                       {tag}
@@ -123,17 +122,11 @@ const DreamItem: React.FC<DreamItemProps> = ({ dream, index, onToggleFavorite, o
                   ))}
                 </div>
               </div>
-              <p className="text-muted-foreground text-xs mt-0.5 line-clamp-1 leading-tight min-w-0">
+              <p className="text-muted-foreground text-xs line-clamp-1 leading-tight min-w-0">
                 {dream.description}
               </p>
             </div>
             <div className="flex items-center gap-8 ml-5 flex-shrink-0">
-              <button 
-                onClick={() => onToggleFavorite(dream.id)}
-                className={`p-1 rounded-full transition-colors ${dream.isFavorite ? 'text-yellow-400 hover:text-yellow-500' : 'text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-400'} hover:bg-gray-50 dark:hover:bg-gray-900/20`}
-              >
-                <span className="text-sm">★</span>
-              </button>
               <button className="p-1 rounded-full hover:bg-primary/10 text-primary hover:text-primary/90 transition-colors"
                 onClick={() => onEdit(dream)}
               >

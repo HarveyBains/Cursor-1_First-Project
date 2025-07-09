@@ -464,7 +464,6 @@ function App() {
                   <DreamItem
                     dream={dream}
                     index={index}
-                    onToggleFavorite={handleToggleFavorite}
                     onMove={moveDream}
                     onEdit={(dreamToEdit) => { setSelectedDream(dreamToEdit); setShowAddDreamForm(true); }}
                     onDelete={confirmDeleteDream}

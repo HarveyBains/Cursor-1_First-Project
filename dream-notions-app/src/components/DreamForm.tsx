@@ -176,19 +176,9 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
               onChange={(e) => setDescription(e.target.value)}
             ></textarea>
           </div>
-          <div className="mb-4 flex items-center">
-            <input
-              type="checkbox"
-              id="isFavorite"
-              className="mr-2 h-4 w-4 text-primary focus:ring-primary border-border rounded"
-              checked={isFavorite}
-              onChange={(e) => setIsFavorite(e.target.checked)}
-            />
-            <label htmlFor="isFavorite" className="text-xs font-medium text-foreground">Mark as Favorite</label>
-          </div>
           <div className="mb-4">
             <label className="block text-xs text-foreground mb-1">Icon Color</label>
-            <div className="flex gap-2">
+            <div className="flex justify-between">
               <div
                 className={`w-8 h-8 rounded-full cursor-pointer border-2 ${iconColor === '' ? 'border-primary' : 'border-transparent'} flex items-center justify-center text-muted-foreground`}
                 onClick={() => setIconColor('')}
