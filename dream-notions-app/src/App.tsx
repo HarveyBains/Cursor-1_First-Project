@@ -13,6 +13,14 @@ import './index.css';
 import type { DreamEntry } from './types/DreamEntry';
 import { useAuth } from './components/AuthProvider';
 
+// Tab interface for notepad
+interface Tab {
+  id: string;
+  name: string;
+  content: string;
+  isDeletable: boolean;
+}
+
 // VersionEditor component
 interface VersionEditorProps {
   initialVersion: string;
@@ -89,7 +97,18 @@ function App() {
     return loadFromLocalStorage('app_version', 'v13.0.2');
   });
   const [isEditingVersion, setIsEditingVersion] = useState(false);
-  const [notepadContent, setNotepadContent] = useState(() => loadFromLocalStorage('notepad_content', ''));
+  const [notepadTabs, setNotepadTabs] = useState<Tab[]>(() => {
+    const savedTabs = loadFromLocalStorage('notepad_tabs', null);
+    if (savedTabs) {
+      return savedTabs;
+    }
+    // Migration: convert old notepad_content to new tab structure
+    const oldContent = loadFromLocalStorage('notepad_content', '');
+    return [
+      { id: 'todo', name: 'To Do', content: oldContent, isDeletable: false },
+      { id: 'issues', name: 'Issues', content: '', isDeletable: false }
+    ];
+  });
   const [isDarkMode, setIsDarkMode] = useState(() => {
     // Initialize from localStorage or default to true (dark mode)
     const savedTheme = localStorage.getItem('theme');
@@ -180,6 +199,10 @@ function App() {
     saveToLocalStorage('app_version', version);
   }, [version]);
 
+  useEffect(() => {
+    saveToLocalStorage('notepad_tabs', notepadTabs);
+  }, [notepadTabs]);
+
   const handleImportDreams = (importedDreams: DreamEntry[]) => {
     const cleanedDreams = cleanDreamTags(importedDreams);
     setDreams(cleanedDreams);
@@ -251,9 +274,8 @@ function App() {
     exportDreams(dreamsToExport);
   };
 
-  const handleSaveNotepad = (content: string) => {
-    setNotepadContent(content);
-    saveToLocalStorage('notepad_content', content);
+  const handleSaveNotepad = (tabs: Tab[]) => {
+    setNotepadTabs(tabs);
     setShowNotepadDialog(false);
   };
 
@@ -616,7 +638,7 @@ function App() {
         isOpen={showNotepadDialog}
         onClose={() => setShowNotepadDialog(false)}
         onSave={handleSaveNotepad}
-        initialContent={notepadContent}
+        initialTabs={notepadTabs}
       />
 
       {/* Custom Context Menu */}

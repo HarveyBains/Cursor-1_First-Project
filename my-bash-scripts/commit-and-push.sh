@@ -26,4 +26,5 @@ full_msg="v$new_version $msg"
 
 git add .
 git commit -m "$full_msg"
+echo "Committed with message: $full_msg"
 git push 
