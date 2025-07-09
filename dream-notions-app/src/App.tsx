@@ -297,6 +297,15 @@ function App() {
     setShowNotepadDialog(false);
   };
 
+  const handleDeleteTag = (tagToDelete: string) => {
+    setDreams(prevDreams => 
+      prevDreams.map(dream => ({
+        ...dream,
+        tags: dream.tags ? dream.tags.filter(tag => tag !== tagToDelete) : []
+      }))
+    );
+  };
+
   const toggleTheme = () => {
     setIsDarkMode((prevMode: boolean) => !prevMode);
   };
@@ -631,6 +640,7 @@ function App() {
         taskTitles={taskTitles}
         allTags={allTags}
         allDreams={dreams}
+        onDeleteTag={handleDeleteTag}
       />
 
       {/* Delete Confirmation Dialog */}

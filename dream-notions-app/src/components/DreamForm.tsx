@@ -20,9 +20,10 @@ interface DreamFormProps {
   taskTitles: string[];
   allTags: string[];
   allDreams: DreamEntry[]; // Add allDreams prop
+  onDeleteTag?: (tagToDelete: string) => void;
 }
 
-const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToEdit, taskTitles, allTags, allDreams }) => {
+const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToEdit, taskTitles, allTags, allDreams, onDeleteTag }) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [isFavorite, setIsFavorite] = useState(false);
@@ -286,6 +287,15 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
                       setTagSuggestions([]);
                       setFocusedSuggestionIndex(-1);
                     }}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      if (onDeleteTag && window.confirm(`Delete the tag "${suggestion}" from all dreams?`)) {
+                        onDeleteTag(suggestion);
+                        setTagSuggestions([]);
+                        setFocusedSuggestionIndex(-1);
+                      }
+                    }}
+                    title="Left-click to select, right-click to delete tag"
                   >
                     {suggestion}
                   </div>
