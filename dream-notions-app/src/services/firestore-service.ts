@@ -53,25 +53,44 @@ export class FirestoreService {
 
   async saveDream(dream: Omit<DreamEntry, 'id'>, userId: string): Promise<string> {
     try {
+      // Clean the dream data - remove undefined fields
+      const cleanDreamData = Object.fromEntries(
+        Object.entries(dream).filter(([_, value]) => value !== undefined)
+      );
+      
       const dreamData = {
-        ...dream,
+        ...cleanDreamData,
         userId,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
+      
+      console.log('🔥 Attempting to save dream to Firestore:', dreamData);
       const docRef = await addDoc(collection(db, 'dreams'), dreamData);
+      console.log('✅ Dream saved successfully with ID:', docRef.id);
       return docRef.id;
     } catch (error) {
-      console.error('Error saving dream:', error);
+      console.error('❌ Error saving dream to Firestore:', error);
+      if (error instanceof Error) {
+        console.error('Error message:', error.message);
+      }
+      if (error && typeof error === 'object' && 'code' in error) {
+        console.error('Error code:', error.code);
+      }
       throw error;
     }
   }
 
   async updateDream(dreamId: string, updates: Partial<DreamEntry>): Promise<void> {
     try {
+      // Clean the updates data - remove undefined fields
+      const cleanUpdates = Object.fromEntries(
+        Object.entries(updates).filter(([_, value]) => value !== undefined)
+      );
+      
       const dreamRef = doc(db, 'dreams', dreamId);
       await updateDoc(dreamRef, {
-        ...updates,
+        ...cleanUpdates,
         updatedAt: new Date().toISOString()
       });
     } catch (error) {
@@ -82,10 +101,19 @@ export class FirestoreService {
 
   async deleteDream(dreamId: string): Promise<void> {
     try {
+      console.log('🗑️ Attempting to delete dream with ID:', dreamId);
+      
       const dreamRef = doc(db, 'dreams', dreamId);
       await deleteDoc(dreamRef);
+      console.log('✅ Dream deleted successfully');
     } catch (error) {
-      console.error('Error deleting dream:', error);
+      console.error('❌ Error deleting dream:', error);
+      if (error instanceof Error) {
+        console.error('Error message:', error.message);
+      }
+      if (error && typeof error === 'object' && 'code' in error) {
+        console.error('Error code:', error.code);
+      }
       throw error;
     }
   }
@@ -138,6 +166,67 @@ export class FirestoreService {
 
     this.unsubscribes.push(unsubscribe);
     return unsubscribe;
+  }
+
+  async repairDreamsWithoutUserId(userId: string): Promise<void> {
+    try {
+      console.log('🔧 Repairing dreams without userId...');
+      
+      // Get all dreams (with permissive rules)
+      const dreamsRef = collection(db, 'dreams');
+      const allDreamsSnapshot = await getDocs(dreamsRef);
+      
+      console.log(`Found ${allDreamsSnapshot.docs.length} total dreams`);
+      
+      let repairedCount = 0;
+      let skippedCount = 0;
+      
+      for (const docSnapshot of allDreamsSnapshot.docs) {
+        const dreamData = docSnapshot.data();
+        
+        // Check if this dream belongs to the current user but is missing userId
+        if (!dreamData.userId) {
+          // This dream needs repair - add userId
+          console.log(`🔧 Repairing dream: ${dreamData.name || 'unnamed'} (${docSnapshot.id})`);
+          
+          await updateDoc(docSnapshot.ref, {
+            userId: userId,
+            updatedAt: new Date().toISOString()
+          });
+          
+          repairedCount++;
+        } else if (dreamData.userId === userId) {
+          // This dream already belongs to the user and has userId
+          skippedCount++;
+        }
+        // Dreams belonging to other users are ignored
+      }
+      
+      console.log(`✅ Repair complete: ${repairedCount} dreams repaired, ${skippedCount} dreams already correct`);
+      
+    } catch (error) {
+      console.error('❌ Error repairing dreams:', error);
+      throw error;
+    }
+  }
+
+  async getAllDreamsForRepair(): Promise<DreamEntry[]> {
+    try {
+      console.log('🔍 Getting all dreams for repair...');
+      const dreamsRef = collection(db, 'dreams');
+      const allDreamsSnapshot = await getDocs(dreamsRef);
+      
+      const dreams = allDreamsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as DreamEntry));
+      
+      console.log(`📋 Found ${dreams.length} total dreams`);
+      return dreams;
+    } catch (error) {
+      console.error('❌ Error getting all dreams:', error);
+      throw error;
+    }
   }
 
   cleanup(): void {

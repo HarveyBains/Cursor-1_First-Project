@@ -145,6 +145,34 @@ function App() {
     setDebugLogs(prev => [...prev.slice(-49), logEntry]); // Keep last 50 logs
   }, []);
 
+  // Copy debug info to clipboard
+  const copyDebugToClipboard = useCallback(async () => {
+    const debugInfo = {
+      userStatus: user ? `✅ ${user.displayName} (${user.email})` : '❌ Not signed in',
+      userId: user?.uid || 'None',
+      dreamsCount: dreams.length,
+      dataSource: user ? '🔥 Firebase' : '💾 localStorage',
+      timestamp: new Date().toISOString(),
+      debugLogs: debugLogs.slice(-20), // Last 20 logs
+      firstFewDreams: dreams.slice(0, 3).map(d => ({
+        id: d.id,
+        name: d.name,
+        userId: d.userId,
+        hasUserId: !!d.userId
+      }))
+    };
+
+    const text = `🕷️ Debug Information\n\n${JSON.stringify(debugInfo, null, 2)}`;
+    
+    try {
+      await navigator.clipboard.writeText(text);
+      addDebugLog('📋 Debug info copied to clipboard');
+    } catch (error) {
+      addDebugLog('❌ Failed to copy to clipboard');
+      console.error('Copy failed:', error);
+    }
+  }, [user, dreams, debugLogs, addDebugLog]);
+
   const allTags = useMemo(() => {
     return Array.from(new Set(dreams.flatMap(dream => dream.tags || []))).filter(tag => tag !== '★' && tag !== 'star' && tag !== 'favorites');
   }, [dreams]);
@@ -230,9 +258,13 @@ function App() {
             addDebugLog(`🔄 Migrating ${cleanedLocalDreams.length} dreams from localStorage to Firebase`);
             
             try {
-              // Upload all local dreams to Firebase
+              // Upload all local dreams to Firebase with proper userId
               for (const dream of cleanedLocalDreams) {
-                const dreamData = { ...dream, timestamp: dream.timestamp || Date.now() };
+                const dreamData = { 
+                  ...dream, 
+                  userId: user.uid, // Ensure userId is set
+                  timestamp: dream.timestamp || Date.now() 
+                };
                 await firestoreService.saveDream(dreamData, user.uid);
               }
               addDebugLog(`✅ Successfully migrated ${cleanedLocalDreams.length} dreams to Firebase`);
@@ -312,12 +344,16 @@ function App() {
           // Add new dream
           addDebugLog(`➕ Adding new dream: ${newDream.name}`);
           const dreamData = { ...newDream, timestamp: Date.now() };
+          addDebugLog(`📤 Sending to Firebase: ${JSON.stringify(dreamData)}`);
           const dreamId = await firestoreService.saveDream(dreamData, user.uid);
           addDebugLog(`✅ Dream saved with ID: ${dreamId}`);
         }
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-        addDebugLog(`❌ Error saving dream: ${errorMsg}`);
+        const errorCode = error instanceof Error && 'code' in error ? error.code : 'unknown';
+        addDebugLog(`❌ Error saving dream: ${errorCode} - ${errorMsg}`);
+        addDebugLog(`🔍 User ID: ${user.uid}`);
+        addDebugLog(`🔍 Dream data: ${JSON.stringify(newDream)}`);
         console.error('Error saving dream to Firebase:', error);
       }
     } else {
@@ -375,15 +411,30 @@ function App() {
 
   const handleDeleteDream = async () => {
     if (dreamToDeleteId) {
+      addDebugLog(`🗑️ Starting delete for dream ID: ${dreamToDeleteId}`);
+      
       if (user) {
         // Use Firebase for authenticated users
         try {
+          addDebugLog(`🔥 Deleting from Firebase: ${dreamToDeleteId}`);
           await firestoreService.deleteDream(dreamToDeleteId);
+          addDebugLog(`✅ Dream deleted successfully from Firebase`);
+          
+          // Immediately update local state to reflect the deletion
+          setDreams(prevDreams => {
+            const filtered = prevDreams.filter(dream => dream.id !== dreamToDeleteId);
+            addDebugLog(`🔄 Updated local state: ${prevDreams.length} → ${filtered.length} dreams`);
+            return filtered;
+          });
         } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+          const errorCode = error && typeof error === 'object' && 'code' in error ? error.code : 'unknown';
+          addDebugLog(`❌ Error deleting from Firebase: ${errorCode} - ${errorMsg}`);
           console.error('Error deleting dream from Firebase:', error);
         }
       } else {
         // Use localStorage for unauthenticated users
+        addDebugLog(`💾 Deleting from localStorage: ${dreamToDeleteId}`);
         setDreams(prevDreams => prevDreams.filter(dream => dream.id !== dreamToDeleteId));
       }
       setDreamToDeleteId(null);
@@ -484,6 +535,49 @@ function App() {
     return currentDreams;
   }, [dreams, activeFilter, sortOrder, activeTagFilter]);
 
+  const handleRepairDreams = async () => {
+    if (!user) {
+      addDebugLog('❌ No user logged in - cannot repair dreams');
+      return;
+    }
+
+    addDebugLog('🔧 Starting comprehensive dream repair...');
+    addDebugLog(`👤 User ID: ${user.uid}`);
+    
+    try {
+      // First, try to get all dreams to see what we're working with
+      const allDreams = await firestoreService.getAllDreamsForRepair();
+      addDebugLog(`📋 Found ${allDreams.length} total dreams in database`);
+      
+      // Count dreams by userId status
+      const dreamsWithUserId = allDreams.filter(d => d.userId);
+      const dreamsWithoutUserId = allDreams.filter(d => !d.userId);
+      const userDreams = allDreams.filter(d => d.userId === user.uid);
+      
+      addDebugLog(`📊 Dreams with userId: ${dreamsWithUserId.length}`);
+      addDebugLog(`📊 Dreams without userId: ${dreamsWithoutUserId.length}`);
+      addDebugLog(`📊 Your dreams: ${userDreams.length}`);
+      
+      if (dreamsWithoutUserId.length > 0) {
+        addDebugLog('🔧 Attempting to repair dreams without userId...');
+        await firestoreService.repairDreamsWithoutUserId(user.uid);
+        addDebugLog('✅ Repair completed');
+      } else {
+        addDebugLog('✅ No dreams need repair');
+      }
+      
+      // Check if we can now access our dreams
+      const updatedDreams = await firestoreService.getUserDreams(user.uid);
+      addDebugLog(`📋 After repair: ${updatedDreams.length} dreams accessible`);
+      
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      addDebugLog(`❌ Repair failed: ${errorMsg}`);
+      addDebugLog('💡 This might be due to Firebase security rules');
+      addDebugLog('💡 Try updating Firebase rules to allow all operations temporarily');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="bg-card border-b border-border px-4 py-3 sticky top-0 z-40">
@@ -545,20 +639,8 @@ function App() {
             </p>
           </div>
 
-          {/* Right side with debug icon, settings icon and user avatar */}
+          {/* Right side with user avatar */}
           <div className="flex items-center gap-2 w-16 sm:w-20 sm:min-w-[unset] justify-end flex-shrink-0">
-            {/* Debug Panel Button */}
-            <button
-              onClick={() => setShowDebugPanel(!showDebugPanel)}
-              className="p-2 rounded-lg text-xs transition-colors hover:bg-muted"
-              title="Debug Panel"
-            >
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                <path d="M12 4.5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm-3 6c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm6 0c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm-3 6c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5z"/>
-              </svg>
-            </button>
-            
             {/* User Avatar / Sign In Button */}
             {user ? (
               <div className="flex flex-col items-center gap-1">
@@ -600,6 +682,21 @@ function App() {
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-red-800 dark:text-red-200">🕷️ Debug Panel</h3>
               <div className="flex items-center gap-2">
+                {user && (
+                  <button
+                    onClick={handleRepairDreams}
+                    className="px-2 py-1 text-xs bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-200 rounded hover:bg-blue-200 dark:hover:bg-blue-700"
+                  >
+                    Repair
+                  </button>
+                )}
+                <button
+                  onClick={copyDebugToClipboard}
+                  className="px-2 py-1 text-xs bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200 rounded hover:bg-green-200 dark:hover:bg-green-700"
+                  title="Copy debug info to clipboard"
+                >
+                  📋 Copy
+                </button>
                 <button
                   onClick={() => setDebugLogs([])}
                   className="px-2 py-1 text-xs bg-red-100 dark:bg-red-800 text-red-800 dark:text-red-200 rounded hover:bg-red-200 dark:hover:bg-red-700"
@@ -686,6 +783,19 @@ function App() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
                   </svg>
                   <span className="hidden sm:inline">Notepad</span>
+                </button>
+                
+                {/* Debug Panel Button */}
+                <button
+                  onClick={() => setShowDebugPanel(!showDebugPanel)}
+                  className="px-3 py-2 rounded-lg text-xs transition-colors font-medium flex items-center gap-1.5 border bg-red-100 dark:bg-red-800 text-red-800 dark:text-red-200 border-red-200 dark:border-red-700 hover:bg-red-200 dark:hover:bg-red-700"
+                  title="Debug Panel"
+                >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                    <path d="M12 4.5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm-3 6c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm6 0c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm-3 6c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5z"/>
+                  </svg>
+                  <span className="hidden sm:inline">🕷️</span>
                 </button>
               </div>
               {/* Add Notion Button */}
