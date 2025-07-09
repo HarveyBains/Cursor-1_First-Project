@@ -99,13 +99,12 @@ const DreamItem: React.FC<DreamItemProps> = ({ dream, index, onMove, onEdit, onD
   return (
     <div ref={ref} style={{ opacity }} data-handler-id={handlerId} className="bg-card border border-border rounded-lg p-1.5 mb-1.5 shadow-sm hover:shadow-md transition-shadow cursor-move">
       <div className="flex items-center gap-1.5">
-        <div className="flex-shrink-0 w-12 flex flex-col items-center">
-          <div className="text-muted-foreground text-xs leading-none mb-0.5">⋮⋮</div>
-          <div className="w-5 h-5 rounded-full flex items-center justify-center mb-0.5 flex-shrink-0 overflow-hidden text-white"
+        <div className="flex-shrink-0 w-12 flex items-center justify-center gap-1">
+          <div className="text-muted-foreground text-xs leading-none">⋮⋮</div>
+          <div className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden text-white"
             style={dream.iconColor ? { backgroundColor: dream.iconColor } : {}} // Apply background only if color is set
           >
           </div>
-          
         </div>
         <div className="flex-1 ml-1 min-w-0">
           <div className="flex items-center justify-between">

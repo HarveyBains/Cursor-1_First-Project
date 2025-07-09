@@ -158,9 +158,7 @@ const NotepadDialog: React.FC<NotepadDialogProps> = ({ isOpen, onClose, onSave, 
 
   const deleteTab = (tabId: string) => {
     if (tabs.length <= 1) return; // Don't delete if it's the only tab
-    
-    const tabToDelete = tabs.find(tab => tab.id === tabId);
-    if (!tabToDelete?.isDeletable) return;
+    if (tabId === 'todo') return; // Don't delete the first tab (original "To Do")
 
     setTabs(prev => prev.filter(tab => tab.id !== tabId));
     
@@ -181,16 +179,13 @@ const NotepadDialog: React.FC<NotepadDialogProps> = ({ isOpen, onClose, onSave, 
 
   const handleTabRightClick = (e: React.MouseEvent, tabId: string) => {
     e.preventDefault();
-    const tab = tabs.find(t => t.id === tabId);
-    if (tab?.isDeletable) {
-      setRenamingTabId(tabId);
-      setIsRenaming(true);
-    }
+    setRenamingTabId(tabId);
+    setIsRenaming(true);
   };
 
-  // Task management functions (only for "To Do" tab)
+  // Task management functions (only for first tab - originally "To Do")
   const getSelectedLineInfo = () => {
-    if (!activeTab || activeTab.name !== 'To Do') return null;
+    if (!activeTab || activeTab.id !== 'todo') return null;
     
     const lines = activeTab.content.split('\n');
     let startLineIndex = 0;
@@ -309,7 +304,7 @@ const NotepadDialog: React.FC<NotepadDialogProps> = ({ isOpen, onClose, onSave, 
 
   if (!isOpen) return null;
 
-  const isToDoTab = activeTab?.name === 'To Do';
+  const isToDoTab = activeTab?.id === 'todo';
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -329,7 +324,7 @@ const NotepadDialog: React.FC<NotepadDialogProps> = ({ isOpen, onClose, onSave, 
                     ? 'bg-background text-foreground border-b-2 border-primary' 
                     : 'text-muted-foreground hover:text-foreground hover:bg-muted/80'
                 }`}
-                title={tab.isDeletable ? "Right-click to rename" : ""}
+                title="Right-click to rename"
               >
                 {tab.name}
               </button>
@@ -395,7 +390,7 @@ const NotepadDialog: React.FC<NotepadDialogProps> = ({ isOpen, onClose, onSave, 
         <div className="flex justify-between items-center mt-4">
           {/* Delete Tab Button */}
           <div>
-            {activeTab?.isDeletable && tabs.length > 1 && (
+            {activeTab?.id !== 'todo' && tabs.length > 1 && (
               <button
                 type="button"
                 onClick={() => deleteTab(activeTabId)}

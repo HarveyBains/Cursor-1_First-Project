@@ -58,8 +58,8 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
     if (isOpen) {
       console.log('DreamForm opened. dreamToEdit:', dreamToEdit);
       if (dreamToEdit) {
-        setName(dreamToEdit.name);
-        setDescription(dreamToEdit.description || '');
+        setName(''); // Clear the title when editing
+        setDescription(dreamToEdit.name); // Move title text to description
         setIsFavorite(dreamToEdit.isFavorite || false);
         setTags(dreamToEdit.tags ? dreamToEdit.tags.join(', ') : '');
         setIconColor(dreamToEdit.iconColor || '');
@@ -266,7 +266,7 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
                   }
                 }
               }}
-              placeholder="e.g., vivid, recurring, nightmare"
+              placeholder="Tagname/Child-tag"
             />
             {tagSuggestions.length > 0 && (
               <div className="absolute z-10 bg-card border border-border rounded-md shadow-lg mt-1 w-full max-h-48 overflow-y-auto">

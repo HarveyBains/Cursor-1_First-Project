@@ -97,6 +97,10 @@ function App() {
     return loadFromLocalStorage('app_version', 'v13.0.2');
   });
   const [isEditingVersion, setIsEditingVersion] = useState(false);
+  const [subheader, setSubheader] = useState(() => {
+    return loadFromLocalStorage('app_subheader', 'Record and organize your dreams');
+  });
+  const [isEditingSubheader, setIsEditingSubheader] = useState(false);
   const [notepadTabs, setNotepadTabs] = useState<Tab[]>(() => {
     const savedTabs = loadFromLocalStorage('notepad_tabs', null);
     if (savedTabs) {
@@ -203,6 +207,10 @@ function App() {
     saveToLocalStorage('notepad_tabs', notepadTabs);
   }, [notepadTabs]);
 
+  useEffect(() => {
+    saveToLocalStorage('app_subheader', subheader);
+  }, [subheader]);
+
   const handleImportDreams = (importedDreams: DreamEntry[]) => {
     const cleanedDreams = cleanDreamTags(importedDreams);
     setDreams(cleanedDreams);
@@ -245,6 +253,16 @@ function App() {
   const handleVersionRightClick = (e: React.MouseEvent) => {
     e.preventDefault();
     setIsEditingVersion(true);
+  };
+
+  const handleSubheaderEdit = (newSubheader: string) => {
+    setSubheader(newSubheader);
+    setIsEditingSubheader(false);
+  };
+
+  const handleSubheaderRightClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsEditingSubheader(true);
   };
 
   const handleDeleteDream = () => {
@@ -375,7 +393,21 @@ function App() {
               <h1 className="text-lg font-semibold text-primary">Dream-Notions</h1>
             </div>
             <p className="text-xs text-muted-foreground">
-              Record and organize your dreams - {isEditingVersion ? (
+              {isEditingSubheader ? (
+                <VersionEditor
+                  initialVersion={subheader}
+                  onSave={handleSubheaderEdit}
+                  onCancel={() => setIsEditingSubheader(false)}
+                />
+              ) : (
+                <span
+                  onContextMenu={handleSubheaderRightClick}
+                  className="cursor-pointer hover:text-primary transition-colors"
+                  title="Right-click to edit description"
+                >
+                  {subheader}
+                </span>
+              )} - {isEditingVersion ? (
                 <VersionEditor
                   initialVersion={version}
                   onSave={handleVersionEdit}
@@ -395,17 +427,6 @@ function App() {
 
           {/* Right side with settings icon and user avatar */}
           <div className="flex items-center gap-2 w-16 sm:w-20 sm:min-w-[unset] justify-end flex-shrink-0">
-            {/* List Planner notepad icon */}
-            <button
-              onClick={() => setShowNotepadDialog(true)}
-              className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-              title="List Planner"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-              </svg>
-            </button>
-
             {/* User Avatar / Sign In Button */}
             <button
               onClick={user ? signOutUser : signInWithGoogle}
@@ -456,15 +477,16 @@ function App() {
                   </svg>
                   <span className="hidden sm:inline">Export</span>
                 </button>
-                {/* Delete All Dreams Button */}
+                {/* Notepad Button */}
                 <button
-                  onClick={confirmDeleteAllDreams}
-                  className="px-3 py-2 rounded-lg text-xs transition-colors font-medium flex items-center gap-1.5 border bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
+                  onClick={() => setShowNotepadDialog(true)}
+                  className="px-3 py-2 rounded-lg text-xs transition-colors font-medium flex items-center gap-1.5 border bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 ml-2"
+                  title="List Planner"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
                   </svg>
-                  <span className="hidden sm:inline">Delete All</span>
+                  <span className="hidden sm:inline">Notepad</span>
                 </button>
               </div>
               {/* Add Notion Button */}
