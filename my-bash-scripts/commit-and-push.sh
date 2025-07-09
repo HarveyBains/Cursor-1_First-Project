@@ -24,7 +24,9 @@ read -p "Enter a commit message: " msg
 
 full_msg="v$new_version $msg"
 
-git add .
-git commit -m "$full_msg"
-echo "Committed with message: $full_msg"
-git push 
+# Remove git add . --quiet
+# User will stage files manually before running this script
+git add . --quiet
+git commit -m "$full_msg" --quiet
+git push --quiet
+git log -7 --oneline 
