@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { auth } from '../services/firebase-config';
-import { type User, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
+import { type User, GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut, getRedirectResult } from 'firebase/auth';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
+  signInWithGoogleRedirect: () => Promise<void>;
   signOutUser: () => Promise<void>;
 }
 
@@ -36,6 +37,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setLoading(false);
     });
     
+    // Handle redirect result for Google sign-in
+    getRedirectResult(auth).then((result) => {
+      if (result) {
+        console.log("✅ Redirect sign-in successful:", result.user.displayName);
+      }
+    }).catch((error) => {
+      console.error("❌ Error getting redirect result:", error);
+    });
+    
     // Fallback timeout in case Firebase doesn't respond
     const timeout = setTimeout(() => {
       if (loading) {
@@ -52,12 +62,63 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const signInWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
+    
+    // Add custom parameters to improve popup behavior
+    provider.setCustomParameters({
+      prompt: 'select_account'
+    });
+    
     try {
       console.log("🔐 Attempting Google sign-in...");
+      console.log("🔐 Auth domain:", auth.config.authDomain);
+      console.log("🔐 Current URL:", window.location.href);
+      
       const result = await signInWithPopup(auth, provider);
       console.log("✅ Google sign-in successful:", result.user.displayName);
-    } catch (error) {
+      console.log("✅ User email:", result.user.email);
+      console.log("✅ User ID:", result.user.uid);
+    } catch (error: any) {
       console.error("❌ Error signing in with Google:", error);
+      
+      // Provide specific error messages for common issues
+      if (error.code === 'auth/popup-closed-by-user') {
+        console.error("❌ Popup was closed by user");
+        alert("Sign-in popup was closed. Please try again and keep the popup open.");
+      } else if (error.code === 'auth/popup-blocked') {
+        console.error("❌ Popup was blocked by browser");
+        alert("Sign-in popup was blocked. Please allow popups for this site and try again.");
+      } else if (error.code === 'auth/unauthorized-domain') {
+        console.error("❌ Domain not authorized");
+        alert("This domain is not authorized for sign-in. Please contact support.");
+      } else if (error.code === 'auth/network-request-failed') {
+        console.error("❌ Network request failed");
+        alert("Network error. Please check your connection and try again.");
+      } else {
+        console.error("❌ Unknown error:", error.message);
+        alert(`Sign-in failed: ${error.message}`);
+      }
+    }
+  };
+
+  const signInWithGoogleRedirect = async () => {
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithRedirect(auth, provider);
+      // The user will be redirected back to the app, and getRedirectResult will handle the final user.
+      // We don't need to set loading to false here, as the redirect will handle the state change.
+    } catch (error: any) {
+      console.error("❌ Error signing in with Google redirect:", error);
+      if (error.code === 'auth/popup-closed-by-user') {
+        alert("Sign-in popup was closed. Please try again and keep the popup open.");
+      } else if (error.code === 'auth/popup-blocked') {
+        alert("Sign-in popup was blocked. Please allow popups for this site and try again.");
+      } else if (error.code === 'auth/unauthorized-domain') {
+        alert("This domain is not authorized for sign-in. Please contact support.");
+      } else if (error.code === 'auth/network-request-failed') {
+        alert("Network error. Please check your connection and try again.");
+      } else {
+        alert(`Sign-in failed: ${error.message}`);
+      }
     }
   };
 
@@ -71,7 +132,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const value = { user, loading, signInWithGoogle, signOutUser };
+  const value = { user, loading, signInWithGoogle, signInWithGoogleRedirect, signOutUser };
 
   return (
     <AuthContext.Provider value={value}>

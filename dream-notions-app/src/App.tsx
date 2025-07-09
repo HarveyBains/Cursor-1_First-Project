@@ -76,7 +76,7 @@ function cleanDreamTags(dreams: DreamEntry[]) {
 }
 
 function App() {
-  const { user, signInWithGoogle, signOutUser } = useAuth();
+  const { user, signInWithGoogle, signOutUser, signInWithGoogleRedirect } = useAuth();
   // Initialize dreams state (will be synced with Firestore when user is authenticated)
   const [dreams, setDreams] = useState<DreamEntry[]>(() => {
     // Start with localStorage data by default - will be replaced by Firestore if user is authenticated
@@ -104,16 +104,28 @@ function App() {
   });
   const [isEditingSubheader, setIsEditingSubheader] = useState(false);
   const [notepadTabs, setNotepadTabs] = useState<Tab[]>(() => {
+    // Start with default tabs - Firebase will override them if user is authenticated
+    const defaultTabs = [
+      { id: 'todo', name: 'To Do', content: '', isDeletable: false },
+      { id: 'notes', name: 'Notes', content: '', isDeletable: true }
+    ];
+    
+    // For unauthenticated users, try to load from localStorage
     const savedTabs = loadFromLocalStorage('notepad_tabs', null);
     if (savedTabs) {
       return savedTabs;
     }
+    
     // Migration: convert old notepad_content to new tab structure
     const oldContent = loadFromLocalStorage('notepad_content', '');
-    return [
-      { id: 'todo', name: 'To Do', content: oldContent, isDeletable: false },
-      { id: 'issues', name: 'Issues', content: '', isDeletable: false }
-    ];
+    if (oldContent) {
+      return [
+        { id: 'todo', name: 'To Do', content: oldContent, isDeletable: false },
+        { id: 'notes', name: 'Notes', content: '', isDeletable: true }
+      ];
+    }
+    
+    return defaultTabs;
   });
   const [isDarkMode, setIsDarkMode] = useState(() => {
     // Initialize from localStorage or default to true (dark mode)
@@ -131,6 +143,7 @@ function App() {
   const [contextMenu, setContextMenu] = useState<{ visible: boolean; x: number; y: number; tag: string | null }>({ visible: false, x: 0, y: 0, tag: null });
   const [showRenameTagDialog, setShowRenameTagDialog] = useState(false);
   const [tagToRename, setTagToRename] = useState<string | null>(null);
+  const [firebaseDataLoaded, setFirebaseDataLoaded] = useState(false);
 
   const allUniqueTags = useMemo(() => {
     // Filter out the star icon and any favorites/star tags
@@ -292,8 +305,12 @@ function App() {
         addDebugLog(`📝 Received notepad update from Firebase: ${firebaseNotepadTabs.length} tabs`);
         
         if (firebaseNotepadTabs.length > 0) {
+          // Always set the data from Firebase when we receive it
+          // The comparison was preventing data from being loaded on refresh
           addDebugLog(`📝 Setting notepad tabs from Firebase`);
+          addDebugLog(`📝 Firebase tabs content: ${JSON.stringify(firebaseNotepadTabs.map(t => ({ id: t.id, name: t.name, contentLength: t.content.length })))}`);
           setNotepadTabs(firebaseNotepadTabs);
+          setFirebaseDataLoaded(true);
         } else {
           // Check if we have local notepad data to migrate
           const localTabs = loadFromLocalStorage('notepad_tabs', null);
@@ -303,19 +320,23 @@ function App() {
             firestoreService.saveNotepadTabs(localTabs, user.uid).then(() => {
               addDebugLog(`✅ Successfully migrated notepad tabs to Firebase`);
               setNotepadTabs(localTabs);
+              setFirebaseDataLoaded(true);
             }).catch(error => {
               addDebugLog(`❌ Failed to migrate notepad tabs: ${error}`);
               // Fall back to local tabs if migration fails
               setNotepadTabs(localTabs);
+              setFirebaseDataLoaded(true);
             });
           } else {
             addDebugLog(`📝 No notepad data found, using default tabs`);
-            // Set default tabs if no data exists
+            // Set default tabs if no data exists, but don't save to Firebase yet
+            // Only save when user actually makes changes
             const defaultTabs = [
               { id: 'todo', name: 'To Do', content: '', isDeletable: false },
               { id: 'notes', name: 'Notes', content: '', isDeletable: true }
             ];
             setNotepadTabs(defaultTabs);
+            setFirebaseDataLoaded(true);
           }
         }
       });
@@ -375,22 +396,23 @@ function App() {
 
   useEffect(() => {
     // Save notepad tabs to Firebase if user is authenticated, otherwise localStorage
-    if (user) {
-      // Use Firebase for authenticated users
+    // Only save if we have actual tabs, user is authenticated, and we're not in the middle of editing
+    if (user && notepadTabs.length > 0 && !showNotepadDialog) {
       // Add debouncing to prevent excessive saves
       const timeoutId = setTimeout(() => {
+        addDebugLog(`📝 Auto-saving ${notepadTabs.length} notepad tabs to Firebase...`);
         firestoreService.saveNotepadTabs(notepadTabs, user.uid).catch(error => {
           console.error('Failed to save notepad tabs to Firebase:', error);
           addDebugLog(`❌ Failed to save notepad tabs: ${error}`);
         });
-      }, 500); // 500ms debounce
+      }, 2000); // 2 second debounce
 
       return () => clearTimeout(timeoutId);
-    } else {
+    } else if (!user) {
       // Use localStorage for unauthenticated users
       saveToLocalStorage('notepad_tabs', notepadTabs);
     }
-  }, [notepadTabs, user, addDebugLog]);
+  }, [notepadTabs, user, addDebugLog, showNotepadDialog]);
 
   useEffect(() => {
     saveToLocalStorage('app_subheader', subheader);
@@ -555,9 +577,26 @@ function App() {
     exportDreams(dreamsToExport);
   };
 
-  const handleSaveNotepad = (tabs: Tab[]) => {
+  const handleSaveNotepad = async (tabs: Tab[]) => {
     addDebugLog(`📝 Saving notepad with ${tabs.length} tabs`);
+    addDebugLog(`📝 Tabs content: ${JSON.stringify(tabs.map(t => ({ id: t.id, name: t.name, contentLength: t.content.length })))}`);
+    
+    // Update local state first
     setNotepadTabs(tabs);
+    
+    // Immediately save to Firebase if user is authenticated
+    if (user) {
+      try {
+        addDebugLog(`📤 Immediately saving notepad to Firebase...`);
+        await firestoreService.saveNotepadTabs(tabs, user.uid);
+        addDebugLog(`✅ Notepad saved to Firebase successfully`);
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        addDebugLog(`❌ Failed to save notepad to Firebase: ${errorMsg}`);
+        console.error('Error saving notepad to Firebase:', error);
+      }
+    }
+    
     setShowNotepadDialog(false);
   };
 
@@ -792,6 +831,92 @@ function App() {
     }
   };
 
+  const handleTestNotepadData = async () => {
+    if (!user) {
+      addDebugLog('❌ No user logged in - cannot test notepad data');
+      return;
+    }
+
+    addDebugLog('🧪 Testing notepad data persistence...');
+    
+    try {
+      // Test 1: Read current data from Firebase
+      addDebugLog('📥 Reading notepad data from Firebase...');
+      const firebaseTabs = await firestoreService.getNotepadTabs(user.uid);
+      addDebugLog(`📝 Found ${firebaseTabs.length} tabs in Firebase`);
+      
+      // Test 2: Compare with local data
+      addDebugLog(`📝 Local has ${notepadTabs.length} tabs`);
+      
+      if (firebaseTabs.length === 0 && notepadTabs.length > 0) {
+        addDebugLog('⚠️ Firebase has no data but local does - this indicates a save issue');
+      } else if (firebaseTabs.length > 0 && notepadTabs.length === 0) {
+        addDebugLog('⚠️ Firebase has data but local doesn\'t - this indicates a load issue');
+      } else if (firebaseTabs.length === notepadTabs.length) {
+        addDebugLog('✅ Tab counts match between local and Firebase');
+      } else {
+        addDebugLog('❌ Tab counts don\'t match between local and Firebase');
+      }
+      
+      // Test 3: Show data details
+      addDebugLog(`📋 Local tabs: ${JSON.stringify(notepadTabs.map(t => ({ id: t.id, name: t.name, contentLength: t.content.length })))}`);
+      addDebugLog(`📋 Firebase tabs: ${JSON.stringify(firebaseTabs.map(t => ({ id: t.id, name: t.name, contentLength: t.content.length })))}`);
+      
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      addDebugLog(`❌ Notepad data test failed: ${errorMsg}`);
+    }
+  };
+
+  const handleCheckFirebaseNotepad = async () => {
+    if (!user) {
+      addDebugLog('❌ No user logged in - cannot check Firebase notepad');
+      return;
+    }
+
+    addDebugLog('🔍 Checking Firebase notepad data directly...');
+    
+    try {
+      const firebaseTabs = await firestoreService.getNotepadTabs(user.uid);
+      addDebugLog(`📝 Firebase has ${firebaseTabs.length} tabs`);
+      
+      if (firebaseTabs.length > 0) {
+        firebaseTabs.forEach((tab, index) => {
+          addDebugLog(`📝 Tab ${index + 1}: ${tab.name} (${tab.content.length} chars)`);
+          if (tab.content.length > 0) {
+            addDebugLog(`📝 Content preview: ${tab.content.substring(0, 100)}...`);
+          }
+        });
+      } else {
+        addDebugLog('📝 No tabs found in Firebase');
+      }
+      
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      addDebugLog(`❌ Failed to check Firebase notepad: ${errorMsg}`);
+    }
+  };
+
+  const handleTroubleshootAuth = () => {
+    addDebugLog('🔍 Troubleshooting authentication...');
+    addDebugLog(`🔍 Current URL: ${window.location.href}`);
+    addDebugLog(`🔍 User agent: ${navigator.userAgent}`);
+    addDebugLog(`🔍 Popup blocker test: ${window.open('about:blank', '_blank') ? 'Popup allowed' : 'Popup blocked'}`);
+    
+    // Check if we're on localhost or IP
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const isIP = /^\d+\.\d+\.\d+\.\d+$/.test(window.location.hostname);
+    
+    addDebugLog(`🔍 Hostname: ${window.location.hostname}`);
+    addDebugLog(`🔍 Is localhost: ${isLocalhost}`);
+    addDebugLog(`🔍 Is IP address: ${isIP}`);
+    
+    if (isIP) {
+      addDebugLog('⚠️ You are accessing via IP address - this may cause auth issues');
+      addDebugLog('💡 Try accessing via localhost instead');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="bg-card border-b border-border px-4 py-3 sticky top-0 z-40">
@@ -939,6 +1064,46 @@ function App() {
                       className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
                     >
                       Force Notepad Sync
+                    </button>
+                    <button
+                      onClick={handleTestNotepadData}
+                      className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
+                    >
+                      Test Notepad Data
+                    </button>
+                    <button
+                      onClick={handleCheckFirebaseNotepad}
+                      className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
+                    >
+                      Check Firebase Notepad
+                    </button>
+                    <button
+                      onClick={handleTroubleshootAuth}
+                      className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
+                    >
+                      Troubleshoot Auth
+                    </button>
+                  </>
+                )}
+                {!user && (
+                  <>
+                    <button
+                      onClick={signInWithGoogle}
+                      className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
+                    >
+                      Sign In (Popup)
+                    </button>
+                    <button
+                      onClick={signInWithGoogleRedirect}
+                      className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
+                    >
+                      Sign In (Redirect)
+                    </button>
+                    <button
+                      onClick={handleTroubleshootAuth}
+                      className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
+                    >
+                      Troubleshoot Auth
                     </button>
                   </>
                 )}

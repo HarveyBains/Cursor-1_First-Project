@@ -130,6 +130,7 @@ const NotepadDialog: React.FC<NotepadDialogProps> = ({ isOpen, onClose, onSave, 
   };
 
   const handleSave = () => {
+    console.log('📝 NotepadDialog: Saving tabs:', tabs);
     onSave(tabs);
     onClose();
   };
@@ -405,17 +406,17 @@ const NotepadDialog: React.FC<NotepadDialogProps> = ({ isOpen, onClose, onSave, 
           <div className="flex gap-3">
             <button
               type="button"
+              onClick={handleSave}
+              className="px-4 py-2 rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              Save & Close
+            </button>
+            <button
+              type="button"
               onClick={onClose}
               className="px-4 py-2 rounded-md text-sm font-medium transition-colors border border-input bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
             >
               Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              className="px-4 py-2 rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              Save Notes
             </button>
           </div>
         </div>
