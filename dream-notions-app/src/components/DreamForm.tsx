@@ -60,8 +60,8 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
     if (isOpen) {
       console.log('DreamForm opened. dreamToEdit:', dreamToEdit);
       if (dreamToEdit) {
-        setName(''); // Clear the title when editing
-        setDescription(dreamToEdit.name); // Move title text to description
+        setName(dreamToEdit.name); // Keep the title when editing
+        setDescription(dreamToEdit.description || ''); // Use existing description
         setIsFavorite(dreamToEdit.isFavorite || false);
         setTags(dreamToEdit.tags ? dreamToEdit.tags.join(', ') : '');
         setIconColor(dreamToEdit.iconColor || '');
