@@ -303,7 +303,25 @@ function App() {
       });
     } else {
       addDebugLog('❌ No user, loading from localStorage');
-      // If no user, load from localStorage
+      
+      // Before loading from localStorage, check if we have current Firebase data to sync
+      if (dreams.length > 0 && dreams[0]?.userId) {
+        addDebugLog(`🔄 Syncing ${dreams.length} dreams from Firebase to localStorage before switching to local mode`);
+        // Remove userId from dreams before saving to localStorage
+        const localDreams = dreams.map(dream => {
+          const { userId, ...dreamWithoutUserId } = dream;
+          return dreamWithoutUserId;
+        });
+        saveToLocalStorage('dreams_local', localDreams);
+      }
+      
+      // If we have current notepad data, sync it to localStorage
+      if (notepadTabs.length > 0) {
+        addDebugLog(`🔄 Syncing ${notepadTabs.length} notepad tabs from Firebase to localStorage`);
+        saveToLocalStorage('notepad_tabs', notepadTabs);
+      }
+      
+      // Load from localStorage
       const loadedDreams = loadFromLocalStorage('dreams_local', []);
       const cleanedDreams = cleanDreamTags(loadedDreams);
       addDebugLog(`💾 Loaded ${cleanedDreams.length} dreams from localStorage`);

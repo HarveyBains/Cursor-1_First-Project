@@ -101,8 +101,12 @@ const DreamItem: React.FC<DreamItemProps> = ({ dream, index, onMove, onEdit, onD
       <div className="flex items-center gap-1.5">
         <div className="flex-shrink-0 w-12 flex items-center justify-center gap-1">
           <div className="text-muted-foreground text-xs leading-none">⋮⋮</div>
-          <div className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden border border-white/30"
-            style={dream.iconColor ? { backgroundColor: dream.iconColor } : { backgroundColor: '#6B7280' }} // Apply background color or default grey
+          <div 
+            className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden border"
+            style={{ 
+              backgroundColor: dream.iconColor || '#6B7280',
+              borderColor: 'rgba(255, 255, 255, 0.3)'
+            }}
           >
           </div>
         </div>
@@ -127,10 +131,12 @@ const DreamItem: React.FC<DreamItemProps> = ({ dream, index, onMove, onEdit, onD
                 </div>
               )}
               
-              {/* Line 3: Description */}
-              <p className="text-muted-foreground text-xs line-clamp-1 leading-tight min-w-0">
-                {dream.description}
-              </p>
+              {/* Line 3: Description (hidden on mobile, shown on desktop) */}
+              {dream.description && (
+                <p className="text-muted-foreground text-xs leading-tight min-w-0 hidden md:block truncate">
+                  {dream.description}
+                </p>
+              )}
             </div>
             <div className="flex items-center gap-8 ml-5 flex-shrink-0">
               <button className="p-1 rounded-full hover:bg-primary/10 text-primary hover:text-primary/90 transition-colors"
