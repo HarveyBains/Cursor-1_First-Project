@@ -451,7 +451,12 @@ function App() {
             {filteredDreams.map((dream, index) => {
               const dreamDate = new Date(dream.timestamp).toDateString();
               const prevDreamDate = index > 0 ? new Date(filteredDreams[index - 1].timestamp).toDateString() : '';
-              const showDivider = index > 0 && dreamDate !== prevDreamDate;
+              
+              // Only show divider if date changed AND there are multiple dreams on the previous date
+              const showDivider = index > 0 && dreamDate !== prevDreamDate && (() => {
+                const prevDateCount = filteredDreams.filter(d => new Date(d.timestamp).toDateString() === prevDreamDate).length;
+                return prevDateCount > 1;
+              })();
 
               return (
                 <React.Fragment key={dream.id}>

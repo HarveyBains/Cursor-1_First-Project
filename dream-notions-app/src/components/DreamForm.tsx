@@ -71,7 +71,6 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
         setDreamDate(`${year}-${month}-${day}`);
       } else {
         // Reset form for new dream
-        const today = new Date();
         setName(''); // No default date in name anymore
         setDescription('');
         setIsFavorite(false);
