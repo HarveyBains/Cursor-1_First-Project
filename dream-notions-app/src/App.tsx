@@ -3,6 +3,7 @@ import DreamItem from './components/DreamItem';
 import ImportDialog from './components/ImportDialog';
 import DreamForm from './components/DreamForm';
 import DeleteConfirmDialog from './components/DeleteConfirmDialog';
+import RenameTagDialog from './components/RenameTagDialog';
 import TagBreadcrumbs from './components/TagBreadcrumbs';
 import { DragDropProvider } from './components/DragDropProvider';
 import { saveToLocalStorage, loadFromLocalStorage } from './utils/localStorageUtils';
@@ -32,6 +33,9 @@ function App() {
   const [sortOrder, setSortOrder] = useState('newest'); // 'manual', 'newest', 'oldest'
   const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null);
   const [currentVisibleTags, setCurrentVisibleTags] = useState<string[]>([]);
+  const [contextMenu, setContextMenu] = useState<{ visible: boolean; x: number; y: number; tag: string | null }>({ visible: false, x: 0, y: 0, tag: null });
+  const [showRenameTagDialog, setShowRenameTagDialog] = useState(false);
+  const [tagToRename, setTagToRename] = useState<string | null>(null);
 
   const allUniqueTags = useMemo(() => {
     return Array.from(new Set(dreams.flatMap(dream => dream.tags || [])));
@@ -180,6 +184,24 @@ function App() {
       return newDreams.map((dream, index) => ({ ...dream, displayOrder: index }));
     });
   }, []);
+
+  const handleRenameTag = (oldTag: string, newTag: string) => {
+    setDreams(prevDreams => prevDreams.map(dream => ({
+      ...dream,
+      tags: dream.tags?.map(tag => tag === oldTag ? newTag : tag) || [],
+    })));
+
+    // Update active filter if the renamed tag was active
+    if (activeTagFilter === oldTag) {
+      setActiveTagFilter(newTag);
+    }
+    // Update visible tags if the renamed tag was visible
+    setCurrentVisibleTags(prevVisibleTags => prevVisibleTags.map(tag => tag === oldTag ? newTag : tag));
+
+    setContextMenu({ visible: false, x: 0, y: 0, tag: null });
+    setShowRenameTagDialog(false);
+    setTagToRename(null);
+  };
 
   const filteredDreams = useMemo(() => {
     let currentDreams = dreams.filter(dream => {
@@ -389,6 +411,10 @@ function App() {
                     }
                   }
                 }}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setContextMenu({ visible: true, x: e.clientX, y: e.clientY, tag });
+                }}
                 className={`px-3 py-1 text-xs rounded-full transition-colors ${activeTagFilter === tag ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
               >
                 {tag.split('/').pop()}
@@ -450,6 +476,43 @@ function App() {
         onClose={() => setShowDeleteAllConfirmDialog(false)}
         onConfirm={handleClearAllDreams}
       />
+
+      {/* Rename Tag Dialog */}
+      <RenameTagDialog
+        isOpen={showRenameTagDialog}
+        onClose={() => { setShowRenameTagDialog(false); setTagToRename(null); }}
+        onRename={handleRenameTag}
+        tagToRename={tagToRename}
+      />
+
+      {/* Custom Context Menu */}
+      {contextMenu.visible && contextMenu.tag && (
+        <div
+          style={{
+            position: 'absolute',
+            top: contextMenu.y,
+            left: contextMenu.x,
+            zIndex: 1000,
+            backgroundColor: 'var(--color-card)',
+            border: '1px solid var(--color-border)',
+            borderRadius: '0.5rem',
+            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+            padding: '0.5rem 0',
+          }}
+          onMouseLeave={() => setContextMenu({ visible: false, x: 0, y: 0, tag: null })} // Hide on mouse leave
+        >
+          <button
+            onClick={() => {
+              setTagToRename(contextMenu.tag);
+              setShowRenameTagDialog(true);
+              setContextMenu({ visible: false, x: 0, y: 0, tag: null });
+            }}
+            className="block w-full text-left px-4 py-2 text-sm text-foreground hover:bg-muted"
+          >
+            Rename Tag
+          </button>
+        </div>
+      )}
     </div>
   );
 }

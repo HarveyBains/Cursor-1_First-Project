@@ -9,26 +9,6 @@ export const parseImportMarkdown = (markdownText: string): DreamEntry[] => {
   
   let currentDreamBlockLines: string[] = [];
 
-  // Helper to parse DD/MM/YY from string
-  const parseDateFromDDMMYY = (dateString: string): number | null => {
-    const match = dateString.match(/^(\d{2})\/(\d{2})\/(\d{2})/);
-    if (match) {
-      const day = parseInt(match[1], 10);
-      const month = parseInt(match[2], 10) - 1; // Month is 0-indexed
-      let year = parseInt(match[3], 10);
-
-      // Standard two-digit year logic: 00-69 = 2000-2069, 70-99 = 1970-1999
-      year = year < 70 ? 2000 + year : 1900 + year;
-
-      const date = new Date(year, month, day);
-      // Check for valid date (e.g., 31/02/2000 would be invalid)
-      if (date.getDate() === day && date.getMonth() === month && date.getFullYear() === year) {
-        return date.getTime();
-      }
-    }
-    return null;
-  };
-
   const processAndPushDream = (blockLines: string[]) => {
     console.log('Processing dream block:', blockLines);
     if (blockLines.length === 0) return;

@@ -110,7 +110,7 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
             <input
               type="date"
               id="dreamDate"
-              className="w-full p-2 border border-border rounded-md bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full p-2 border border-border rounded-md bg-gray-400 text-black focus:outline-none focus:ring-2 focus:ring-primary"
               value={dreamDate}
               onChange={(e) => setDreamDate(e.target.value)}
               required
@@ -121,11 +121,10 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
             <input
               type="text"
               id="name"
-              className="w-full p-2 border border-border rounded-md bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full p-2 border border-border rounded-md bg-gray-400 text-black focus:outline-none focus:ring-2 focus:ring-primary"
               value={name}
               onChange={handleNameChange}
               required
-              style={{ color: 'black' }}
             />
             {nameSuggestions.length > 0 && (
               <div className="absolute z-10 bg-card border border-border rounded-md shadow-lg mt-1 w-full max-h-48 overflow-y-auto">
@@ -146,10 +145,9 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
             <textarea
               id="description"
               rows={4}
-              className="w-full p-2 border border-border rounded-md bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-sans"
+              className="w-full p-2 border border-border rounded-md bg-gray-400 text-black focus:outline-none focus:ring-2 focus:ring-primary font-sans"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              style={{ color: 'black' }}
             ></textarea>
           </div>
           <div className="mb-4 flex items-center">
