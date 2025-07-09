@@ -31,7 +31,6 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
   const [iconColor, setIconColor] = useState(''); // Default to no color
   const [nameSuggestions, setNameSuggestions] = useState<string[]>([]);
   const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
-  const [focusedSuggestionIndex, setFocusedSuggestionIndex] = useState(-1);
   const [dreamDate, setDreamDate] = useState<string>(''); // YYYY-MM-DD format for input type="date"
   const [newTagInput, setNewTagInput] = useState('');
 

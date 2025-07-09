@@ -241,9 +241,6 @@ function App() {
     setShowDeleteAllConfirmDialog(false);
   };
 
-  const confirmDeleteAllDreams = () => {
-    setShowDeleteAllConfirmDialog(true);
-  };
 
   const handleVersionEdit = (newVersion: string) => {
     setVersion(newVersion);
@@ -278,13 +275,6 @@ function App() {
     setShowDeleteConfirmDialog(true);
   };
 
-  const handleToggleFavorite = (id: string) => {
-    setDreams(prevDreams =>
-      prevDreams.map(dream =>
-        dream.id === id ? { ...dream, isFavorite: !dream.isFavorite } : dream
-      )
-    );
-  };
 
   const handleExportDreams = () => {
     // Ensure exported dreams are always sorted newest first
