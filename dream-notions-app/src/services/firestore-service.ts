@@ -442,7 +442,7 @@ export class FirestoreService {
     }
   }
 
-  subscribeToNotepadTabs(userId: string, callback: (tabs: any[]) => void): Unsubscribe {
+  subscribeToNotepadTabs(userId: string, callback: (data: any) => void): Unsubscribe {
     console.log(`📝 Setting up notepad subscription for user: ${userId}`);
     const notepadRef = doc(db, 'notepads', userId);
     
@@ -450,9 +450,7 @@ export class FirestoreService {
       if (doc.exists()) {
         const data = doc.data();
         console.log('📝 Notepad tabs updated from Firebase:', data);
-        const tabs = data.tabs || [];
-        console.log(`📝 Found ${tabs.length} notepad tabs`);
-        callback(tabs);
+        callback(data);
       } else {
         console.log('📝 No notepad data found in Firebase');
         callback([]);

@@ -143,7 +143,15 @@ function App() {
   const [contextMenu, setContextMenu] = useState<{ visible: boolean; x: number; y: number; tag: string | null }>({ visible: false, x: 0, y: 0, tag: null });
   const [showRenameTagDialog, setShowRenameTagDialog] = useState(false);
   const [tagToRename, setTagToRename] = useState<string | null>(null);
+  
+  const [isUpdatingFromFirebase, setIsUpdatingFromFirebase] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [firebaseDataLoaded, setFirebaseDataLoaded] = useState(false);
+  const [lastSavedNotepadData, setLastSavedNotepadData] = useState<string>('');
+  const [initialLoadDelayComplete, setInitialLoadDelayComplete] = useState(false);
+
+  const [activeNotepadTabId, setActiveNotepadTabId] = useState<string>('');
+
 
   const allUniqueTags = useMemo(() => {
     // Filter out the star icon and any favorites/star tags
@@ -259,6 +267,11 @@ function App() {
       addDebugLog(`🔥 Setting up Firestore subscription for user: ${user.uid}`);
       addDebugLog(`👤 User info: ${user.displayName} (${user.email})`);
       
+      // Reset flags when user changes
+      setIsInitialLoad(true);
+      setFirebaseDataLoaded(false);
+      setInitialLoadDelayComplete(false);
+      
       // Subscribe to real-time updates from Firestore for dreams
       dreamsUnsubscribe = firestoreService.subscribeToUserDreams(user.uid, async (firestoreDreams) => {
         addDebugLog(`📥 Received ${firestoreDreams.length} dreams from Firestore`);
@@ -303,42 +316,21 @@ function App() {
       // Subscribe to real-time updates from Firestore for notepad
       notepadUnsubscribe = firestoreService.subscribeToNotepadTabs(user.uid, (firebaseNotepadTabs) => {
         addDebugLog(`📝 Received notepad update from Firebase: ${firebaseNotepadTabs.length} tabs`);
+        addDebugLog(`📝 User ID: ${user.uid}`);
+        addDebugLog(`📝 Current time: ${new Date().toISOString()}`);
         
-        if (firebaseNotepadTabs.length > 0) {
-          // Always set the data from Firebase when we receive it
-          // The comparison was preventing data from being loaded on refresh
-          addDebugLog(`📝 Setting notepad tabs from Firebase`);
-          addDebugLog(`📝 Firebase tabs content: ${JSON.stringify(firebaseNotepadTabs.map(t => ({ id: t.id, name: t.name, contentLength: t.content.length })))}`);
-          setNotepadTabs(firebaseNotepadTabs);
-          setFirebaseDataLoaded(true);
-        } else {
-          // Check if we have local notepad data to migrate
-          const localTabs = loadFromLocalStorage('notepad_tabs', null);
-          if (localTabs && localTabs.length > 0) {
-            addDebugLog(`🔄 Migrating ${localTabs.length} notepad tabs from localStorage to Firebase`);
-            // Save local tabs to Firebase
-            firestoreService.saveNotepadTabs(localTabs, user.uid).then(() => {
-              addDebugLog(`✅ Successfully migrated notepad tabs to Firebase`);
-              setNotepadTabs(localTabs);
-              setFirebaseDataLoaded(true);
-            }).catch(error => {
-              addDebugLog(`❌ Failed to migrate notepad tabs: ${error}`);
-              // Fall back to local tabs if migration fails
-              setNotepadTabs(localTabs);
-              setFirebaseDataLoaded(true);
-            });
-          } else {
-            addDebugLog(`📝 No notepad data found, using default tabs`);
-            // Set default tabs if no data exists, but don't save to Firebase yet
-            // Only save when user actually makes changes
-            const defaultTabs = [
-              { id: 'todo', name: 'To Do', content: '', isDeletable: false },
-              { id: 'notes', name: 'Notes', content: '', isDeletable: true }
-            ];
-            setNotepadTabs(defaultTabs);
-            setFirebaseDataLoaded(true);
-          }
+        // Add a delay during initial load to prevent overwriting local data
+        if (isInitialLoad && !initialLoadDelayComplete) {
+          addDebugLog(`📝 Initial load detected, delaying Firebase update by 2 seconds...`);
+          setTimeout(() => {
+            addDebugLog(`📝 Processing delayed Firebase update...`);
+            setInitialLoadDelayComplete(true);
+            processFirebaseNotepadUpdate(firebaseNotepadTabs);
+          }, 2000);
+          return;
         }
+        
+        processFirebaseNotepadUpdate(firebaseNotepadTabs);
       });
     } else {
       addDebugLog('❌ No user, loading from localStorage');
@@ -381,7 +373,7 @@ function App() {
         notepadUnsubscribe();
       }
     };
-  }, [user, addDebugLog]);
+  }, [user, addDebugLog, notepadTabs.length, isInitialLoad]);
 
   useEffect(() => {
     // Only save to localStorage for unauthenticated users
@@ -394,29 +386,30 @@ function App() {
     saveToLocalStorage('app_version', version);
   }, [version]);
 
-  useEffect(() => {
-    // Save notepad tabs to Firebase if user is authenticated, otherwise localStorage
-    // Only save if we have actual tabs, user is authenticated, and we're not in the middle of editing
-    if (user && notepadTabs.length > 0 && !showNotepadDialog) {
-      // Add debouncing to prevent excessive saves
-      const timeoutId = setTimeout(() => {
-        addDebugLog(`📝 Auto-saving ${notepadTabs.length} notepad tabs to Firebase...`);
-        firestoreService.saveNotepadTabs(notepadTabs, user.uid).catch(error => {
-          console.error('Failed to save notepad tabs to Firebase:', error);
-          addDebugLog(`❌ Failed to save notepad tabs: ${error}`);
-        });
-      }, 2000); // 2 second debounce
 
-      return () => clearTimeout(timeoutId);
-    } else if (!user) {
-      // Use localStorage for unauthenticated users
-      saveToLocalStorage('notepad_tabs', notepadTabs);
-    }
-  }, [notepadTabs, user, addDebugLog, showNotepadDialog]);
 
   useEffect(() => {
     saveToLocalStorage('app_subheader', subheader);
   }, [subheader]);
+
+  // Effect to save notepad changes
+  useEffect(() => {
+    // Save to localStorage for both authenticated and unauthenticated users
+    const backupData = {
+      tabs: notepadTabs,
+      timestamp: new Date().toISOString(),
+    };
+    saveToLocalStorage('notepad_tabs_backup', backupData);
+
+    if (user) {
+      // For authenticated users, save to Firebase
+      addDebugLog('[SYNC] Local change detected. Saving to Firebase.');
+      firestoreService.saveNotepadTabs(notepadTabs, user.uid);
+    } else {
+      // For unauthenticated users, save to the primary localStorage key
+      saveToLocalStorage('notepad_tabs', notepadTabs);
+    }
+  }, [notepadTabs, user, addDebugLog]);
 
   const handleImportDreams = (importedDreams: DreamEntry[]) => {
     const cleanedDreams = cleanDreamTags(importedDreams);
@@ -541,7 +534,7 @@ function App() {
             } catch (error) {
               addDebugLog(`❌ Verification failed: ${error}`);
             }
-          }, 1000); // Wait 1 second for Firebase to update
+          }, 1000);
           
           // Immediately update local state to reflect the deletion
           setDreams(prevDreams => {
@@ -577,26 +570,8 @@ function App() {
     exportDreams(dreamsToExport);
   };
 
-  const handleSaveNotepad = async (tabs: Tab[]) => {
-    addDebugLog(`📝 Saving notepad with ${tabs.length} tabs`);
-    addDebugLog(`📝 Tabs content: ${JSON.stringify(tabs.map(t => ({ id: t.id, name: t.name, contentLength: t.content.length })))}`);
-    
-    // Update local state first
+  const handleSaveNotepad = (tabs: Tab[]) => {
     setNotepadTabs(tabs);
-    
-    // Immediately save to Firebase if user is authenticated
-    if (user) {
-      try {
-        addDebugLog(`📤 Immediately saving notepad to Firebase...`);
-        await firestoreService.saveNotepadTabs(tabs, user.uid);
-        addDebugLog(`✅ Notepad saved to Firebase successfully`);
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-        addDebugLog(`❌ Failed to save notepad to Firebase: ${errorMsg}`);
-        console.error('Error saving notepad to Firebase:', error);
-      }
-    }
-    
     setShowNotepadDialog(false);
   };
 
@@ -819,15 +794,29 @@ function App() {
       return;
     }
 
-    addDebugLog('🔄 Force syncing notepad to Firebase...');
-    addDebugLog(`📝 Current tabs: ${notepadTabs.length}`);
+    addDebugLog('🔄 Force syncing notepad data to Firebase...');
+    addDebugLog(`📝 Local tabs: ${notepadTabs.length}`);
+    addDebugLog(`📝 Local content: ${JSON.stringify(notepadTabs.map(t => ({ id: t.id, name: t.name, contentLength: t.content.length })))}`);
     
     try {
+      // Temporarily disable Firebase updates
+      setIsUpdatingFromFirebase(true);
+      
+      // Force save current local data to Firebase
       await firestoreService.saveNotepadTabs(notepadTabs, user.uid);
-      addDebugLog('✅ Force sync completed successfully');
+      addDebugLog(`✅ Force sync completed - local data saved to Firebase`);
+      
+      // Reset flags after a delay
+      setTimeout(() => {
+        setIsUpdatingFromFirebase(false);
+        setIsInitialLoad(false);
+        addDebugLog(`🔄 Firebase sync re-enabled`);
+      }, 2000);
+      
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       addDebugLog(`❌ Force sync failed: ${errorMsg}`);
+      setIsUpdatingFromFirebase(false);
     }
   };
 
@@ -914,6 +903,181 @@ function App() {
     if (isIP) {
       addDebugLog('⚠️ You are accessing via IP address - this may cause auth issues');
       addDebugLog('💡 Try accessing via localhost instead');
+    }
+  };
+
+  const handleTestCrossDeviceSync = async () => {
+    if (!user) {
+      addDebugLog('❌ No user logged in - cannot test cross-device sync');
+      return;
+    }
+
+    addDebugLog('🧪 Testing cross-device notepad sync...');
+    addDebugLog(`👤 User ID: ${user.uid}`);
+    addDebugLog(`📱 Device: ${navigator.userAgent}`);
+    addDebugLog(`🌐 URL: ${window.location.href}`);
+    
+    try {
+      // Create a test entry with timestamp
+      const testTabs = [
+        {
+          id: 'test-sync',
+          name: 'Test Sync',
+          content: `Cross-device sync test - ${new Date().toISOString()}\n\nThis should appear on all your devices.`,
+          isDeletable: true
+        }
+      ];
+      
+      addDebugLog(`📝 Creating test notepad entry...`);
+      await firestoreService.saveNotepadTabs(testTabs, user.uid);
+      addDebugLog(`✅ Test entry created successfully`);
+      addDebugLog(`💡 Check your other devices to see if this appears`);
+      addDebugLog(`💡 If it doesn't appear, there may be a subscription issue`);
+      
+      // Wait 5 seconds then check if it was saved
+      setTimeout(async () => {
+        try {
+          const retrievedTabs = await firestoreService.getNotepadTabs(user.uid);
+          const testTab = retrievedTabs.find(tab => tab.id === 'test-sync');
+          if (testTab) {
+            addDebugLog(`✅ Test entry found in Firebase: ${testTab.content.substring(0, 50)}...`);
+          } else {
+            addDebugLog(`❌ Test entry not found in Firebase`);
+          }
+        } catch (error) {
+          addDebugLog(`❌ Error checking test entry: ${error}`);
+        }
+      }, 5000);
+      
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      addDebugLog(`❌ Cross-device sync test failed: ${errorMsg}`);
+    }
+  };
+
+  const handleRestoreFromBackup = async () => {
+    if (!user) {
+      addDebugLog('❌ No user logged in - cannot restore from backup');
+      return;
+    }
+
+    addDebugLog('🔄 Restoring notepad data from localStorage backup...');
+    
+    const backupTabs = loadFromLocalStorage('notepad_tabs_backup', null);
+    if (backupTabs && backupTabs.length > 0) {
+      addDebugLog(`📝 Found backup with ${backupTabs.length} tabs`);
+      addDebugLog(`📝 Backup content: ${JSON.stringify(backupTabs.map((t: any) => ({ id: t.id, name: t.name, contentLength: t.content.length })))}`);
+      
+      // Restore local state
+      setNotepadTabs(backupTabs);
+      
+      // Save to Firebase
+      try {
+        await firestoreService.saveNotepadTabs(backupTabs, user.uid);
+        addDebugLog(`✅ Backup restored to Firebase successfully`);
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        addDebugLog(`❌ Failed to save backup to Firebase: ${errorMsg}`);
+      }
+    } else {
+      addDebugLog(`📝 No backup found in localStorage`);
+    }
+  };
+
+  const processFirebaseNotepadUpdate = (firebaseNotepadTabs: any[]) => {
+    // Check if we have recent local changes that should be preserved
+    const localBackup = loadFromLocalStorage('notepad_tabs_backup', null);
+    const currentTabsString = JSON.stringify(notepadTabs);
+    const firebaseTabsString = JSON.stringify(firebaseNotepadTabs);
+    
+    // Deep comparison of just the tab content, ignoring metadata
+    const currentTabsForComparison = notepadTabs.map(tab => ({
+      id: tab.id,
+      name: tab.name,
+      content: tab.content,
+      isDeletable: tab.isDeletable
+    }));
+    const firebaseTabsForComparison = firebaseNotepadTabs.map((tab: any) => ({
+      id: tab.id,
+      name: tab.name,
+      content: tab.content,
+      isDeletable: tab.isDeletable
+    }));
+    
+    const currentTabsStringClean = JSON.stringify(currentTabsForComparison);
+    const firebaseTabsStringClean = JSON.stringify(firebaseTabsForComparison);
+    
+    // If we have local data and Firebase data is different, preserve local data
+    if (notepadTabs.length > 0 && currentTabsStringClean !== firebaseTabsStringClean) {
+      addDebugLog(`📝 Local data differs from Firebase - preserving local data`);
+      addDebugLog(`📝 Local tabs: ${notepadTabs.length}, Firebase tabs: ${firebaseNotepadTabs.length}`);
+      
+      // Save local data to Firebase to override
+      if (!isUpdatingFromFirebase && user) {
+        addDebugLog(`📤 Saving local data to Firebase to override...`);
+        setIsUpdatingFromFirebase(true);
+        firestoreService.saveNotepadTabs(notepadTabs, user.uid).then(() => {
+          addDebugLog(`✅ Local data saved to Firebase successfully`);
+          setTimeout(() => setIsUpdatingFromFirebase(false), 1000);
+        }).catch(error => {
+          addDebugLog(`❌ Failed to save local data: ${error}`);
+          setIsUpdatingFromFirebase(false);
+        });
+      }
+      return;
+    }
+    
+    // Only update if the data has actually changed and we don't have local data
+    if (currentTabsStringClean !== firebaseTabsStringClean) {
+      addDebugLog(`📝 Data has changed, updating from Firebase`);
+      addDebugLog(`📝 Firebase tabs content: ${JSON.stringify(firebaseNotepadTabs.map((t: any) => ({ id: t.id, name: t.name, contentLength: t.content.length })))}`);
+      
+      setIsUpdatingFromFirebase(true);
+      setNotepadTabs(firebaseNotepadTabs);
+      setFirebaseDataLoaded(true);
+      setIsInitialLoad(false);
+      // Reset the flag after a short delay
+      setTimeout(() => setIsUpdatingFromFirebase(false), 1000);
+    } else {
+      addDebugLog(`📝 No change detected, skipping update`);
+      if (isInitialLoad) {
+        setIsInitialLoad(false);
+      }
+    }
+    
+    if (firebaseNotepadTabs.length === 0) {
+      // Check if we have local notepad data to migrate
+      const localTabs = loadFromLocalStorage('notepad_tabs', null);
+      if (localTabs && localTabs.length > 0) {
+        addDebugLog(`🔄 Migrating ${localTabs.length} notepad tabs from localStorage to Firebase`);
+        // Save local tabs to Firebase
+        if (user) {
+          firestoreService.saveNotepadTabs(localTabs, user.uid).then(() => {
+            addDebugLog(`✅ Successfully migrated notepad tabs to Firebase`);
+            setNotepadTabs(localTabs);
+            setFirebaseDataLoaded(true);
+          }).catch(error => {
+            addDebugLog(`❌ Failed to migrate notepad tabs: ${error}`);
+            // Fall back to local tabs if migration fails
+            setNotepadTabs(localTabs);
+            setFirebaseDataLoaded(true);
+          });
+        } else {
+          // Fall back to local tabs if no user
+          setNotepadTabs(localTabs);
+          setFirebaseDataLoaded(true);
+        }
+      } else {
+        addDebugLog(`📝 No notepad data found, using default tabs`);
+        // Set default tabs if no data exists, but don't save to Firebase yet
+        // Only save when user actually makes changes
+        const defaultTabs = [
+          { id: 'todo', name: 'To Do', content: '', isDeletable: false },
+          { id: 'notes', name: 'Notes', content: '', isDeletable: true }
+        ];
+        setNotepadTabs(defaultTabs);
+        setFirebaseDataLoaded(true);
+      }
     }
   };
 
@@ -1078,10 +1242,16 @@ function App() {
                       Check Firebase Notepad
                     </button>
                     <button
-                      onClick={handleTroubleshootAuth}
+                      onClick={handleTestCrossDeviceSync}
                       className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
                     >
-                      Troubleshoot Auth
+                      Test Cross-Device Sync
+                    </button>
+                    <button
+                      onClick={handleRestoreFromBackup}
+                      className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
+                    >
+                      Restore From Backup
                     </button>
                   </>
                 )}

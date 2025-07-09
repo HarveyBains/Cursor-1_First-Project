@@ -84,12 +84,17 @@ const RenameTabForm: React.FC<RenameTabFormProps> = ({ currentName, onSave, onCa
   );
 };
 
-const NotepadDialog: React.FC<NotepadDialogProps> = ({ isOpen, onClose, onSave, initialTabs }) => {
-  const [tabs, setTabs] = useState<Tab[]>(initialTabs);
-  const [activeTabId, setActiveTabId] = useState<string>(tabs[0]?.id || '');
+const NotepadDialog: React.FC<NotepadDialogProps> = ({ 
+  isOpen, 
+  onClose, 
+  onSave, 
+  initialTabs, 
+}) => {
   const [selectionStart, setSelectionStart] = useState(0);
   const [isRenaming, setIsRenaming] = useState(false);
   const [renamingTabId, setRenamingTabId] = useState<string | null>(null);
+  const [tabs, setTabs] = useState<Tab[]>(initialTabs);
+  const [activeTabId, setActiveTabId] = useState<string>(initialTabs[0]?.id || '');
 
   useEffect(() => {
     setTabs(initialTabs);
@@ -130,7 +135,6 @@ const NotepadDialog: React.FC<NotepadDialogProps> = ({ isOpen, onClose, onSave, 
   };
 
   const handleSave = () => {
-    console.log('📝 NotepadDialog: Saving tabs:', tabs);
     onSave(tabs);
     onClose();
   };
