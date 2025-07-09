@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import DreamItem from './components/DreamItem';
 import ImportDialog from './components/ImportDialog';
 import DreamForm from './components/DreamForm';
@@ -13,11 +13,70 @@ import './index.css';
 import type { DreamEntry } from './types/DreamEntry';
 import { useAuth } from './components/AuthProvider';
 
+// VersionEditor component
+interface VersionEditorProps {
+  initialVersion: string;
+  onSave: (version: string) => void;
+  onCancel: () => void;
+}
+
+const VersionEditor: React.FC<VersionEditorProps> = ({ initialVersion, onSave, onCancel }) => {
+  const [value, setValue] = useState(initialVersion);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, []);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave(value.trim() || initialVersion);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      onCancel();
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="inline-flex items-center">
+      <input
+        ref={inputRef}
+        type="text"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onBlur={handleSubmit}
+        className="text-xs bg-background border border-border rounded px-1 py-0.5 text-foreground min-w-0 w-16"
+        style={{ width: `${Math.max(value.length * 0.6, 3)}rem` }}
+      />
+    </form>
+  );
+};
+
+// Utility to clean tags
+function cleanDreamTags(dreams: DreamEntry[]) {
+  return dreams.map(dream => ({
+    ...dream,
+    tags: dream.tags ? dream.tags.filter(tag => tag !== '★' && tag !== 'star' && tag !== 'favorites') : [],
+  }));
+}
+
 function App() {
   const { user, signInWithGoogle, signOutUser } = useAuth();
+  // On load, clean dreams from localStorage
   const [dreams, setDreams] = useState<DreamEntry[]>(() => {
     const loadedDreams = loadFromLocalStorage('dreams_local', []);
-    return loadedDreams;
+    const cleanedDreams = cleanDreamTags(loadedDreams);
+    // Save back cleaned dreams if any were changed
+    if (JSON.stringify(loadedDreams) !== JSON.stringify(cleanedDreams)) {
+      saveToLocalStorage('dreams_local', cleanedDreams);
+    }
+    return cleanedDreams;
   });
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [showAddDreamForm, setShowAddDreamForm] = useState(false);
@@ -26,6 +85,10 @@ function App() {
   const [dreamToDeleteId, setDreamToDeleteId] = useState<string | null>(null);
   const [showDeleteAllConfirmDialog, setShowDeleteAllConfirmDialog] = useState(false);
   const [showNotepadDialog, setShowNotepadDialog] = useState(false);
+  const [version, setVersion] = useState(() => {
+    return loadFromLocalStorage('app_version', 'v13.0.2');
+  });
+  const [isEditingVersion, setIsEditingVersion] = useState(false);
   const [notepadContent, setNotepadContent] = useState(() => loadFromLocalStorage('notepad_content', ''));
   const [isDarkMode, setIsDarkMode] = useState(() => {
     // Initialize from localStorage or default to true (dark mode)
@@ -113,8 +176,13 @@ function App() {
     saveToLocalStorage('dreams_local', dreams);
   }, [dreams]);
 
+  useEffect(() => {
+    saveToLocalStorage('app_version', version);
+  }, [version]);
+
   const handleImportDreams = (importedDreams: DreamEntry[]) => {
-    setDreams(importedDreams);
+    const cleanedDreams = cleanDreamTags(importedDreams);
+    setDreams(cleanedDreams);
     setShowImportDialog(false);
   };
 
@@ -144,6 +212,16 @@ function App() {
 
   const confirmDeleteAllDreams = () => {
     setShowDeleteAllConfirmDialog(true);
+  };
+
+  const handleVersionEdit = (newVersion: string) => {
+    setVersion(newVersion);
+    setIsEditingVersion(false);
+  };
+
+  const handleVersionRightClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsEditingVersion(true);
   };
 
   const handleDeleteDream = () => {
@@ -274,7 +352,23 @@ function App() {
             <div className="flex items-center justify-center mb-1">
               <h1 className="text-lg font-semibold text-primary">Dream-Notions</h1>
             </div>
-            <p className="text-xs text-muted-foreground">Record and organize your dreams - v13.0.2</p>
+            <p className="text-xs text-muted-foreground">
+              Record and organize your dreams - {isEditingVersion ? (
+                <VersionEditor
+                  initialVersion={version}
+                  onSave={handleVersionEdit}
+                  onCancel={() => setIsEditingVersion(false)}
+                />
+              ) : (
+                <span
+                  onContextMenu={handleVersionRightClick}
+                  className="cursor-pointer hover:text-primary transition-colors"
+                  title="Right-click to edit version"
+                >
+                  {version}
+                </span>
+              )}
+            </p>
           </div>
 
           {/* Right side with settings icon and user avatar */}

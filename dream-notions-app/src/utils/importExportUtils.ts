@@ -35,7 +35,8 @@ export const parseImportMarkdown = (markdownText: string): DreamEntry[] => {
 
       const name = newFormatMatch[2].trim();
       const tagsString = newFormatMatch[3] ? newFormatMatch[3].trim() : '';
-      const tags = tagsString.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
+      // After parsing tags for each dream, filter out '★', 'star', and 'favorites'
+      const tags = tagsString.split(',').map(tag => tag.trim()).filter(tag => tag !== '' && tag !== '★' && tag !== 'star' && tag !== 'favorites');
       const description = blockLines.slice(1).join('\n').trim();
 
       dreams.push({
