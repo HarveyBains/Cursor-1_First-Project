@@ -33,6 +33,7 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
   const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
   const [focusedSuggestionIndex, setFocusedSuggestionIndex] = useState(-1);
   const [dreamDate, setDreamDate] = useState<string>(''); // YYYY-MM-DD format for input type="date"
+  const [newTagInput, setNewTagInput] = useState('');
 
   // Compute icon color usage frequency
   const iconColorCounts: Record<string, number> = React.useMemo(() => {
@@ -85,6 +86,7 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
       }
       setNameSuggestions([]); // Clear suggestions when form opens
       setTagSuggestions([]);
+      setNewTagInput(''); // Clear new tag input when form opens
     }
   }, [isOpen, dreamToEdit]);
 
@@ -200,26 +202,44 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
             </div>
           </div>
           <div className="mb-6">
-            <label htmlFor="tags" className="block text-xs text-foreground mb-1">Tags (comma-separated)</label>
+            <label className="block text-xs text-foreground mb-1">Tags</label>
+            {/* Current Tags Display */}
+            <div className="min-h-[2.5rem] p-2 border border-border rounded-md bg-background mb-2 flex flex-wrap gap-1">
+              {tags.split(',').map(tag => tag.trim()).filter(tag => tag !== '').map((tag, index) => (
+                <span
+                  key={index}
+                  className="px-2 py-1 text-xs rounded-full font-medium bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 inline-flex items-center gap-1"
+                >
+                  {tag}
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      const currentTags = tags.split(',').map(t => t.trim()).filter(t => t !== '');
+                      currentTags.splice(index, 1);
+                      setTags(currentTags.join(', '));
+                    }}
+                    className="text-primary/70 hover:text-primary hover:bg-primary/20 rounded-full w-3 h-3 flex items-center justify-center text-xs leading-none"
+                    title="Remove tag"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+              {tags.split(',').map(tag => tag.trim()).filter(tag => tag !== '').length === 0 && (
+                <span className="text-xs text-muted-foreground">No tags yet</span>
+              )}
+            </div>
+            
+            {/* Add New Tag Input */}
             <input
               type="text"
-              id="tags"
               className="w-full p-2 border border-border rounded-md bg-background text-foreground text-xs"
-              value={tags}
+              value={newTagInput}
               onChange={(e) => {
-                const inputValue = e.target.value;
-                setTags(inputValue);
-                setFocusedSuggestionIndex(-1); // Reset focus on typing
-
-                const lastCommaIndex = inputValue.lastIndexOf(',');
-                const currentInputSegment = lastCommaIndex !== -1 
-                  ? inputValue.substring(lastCommaIndex + 1).trim() 
-                  : inputValue.trim();
-
-                if (currentInputSegment.length > 0) {
+                setNewTagInput(e.target.value);
+                if (e.target.value.length > 0) {
                   const filtered = allTags.filter(tag => {
-                    // Check if the tag starts with the current segment
-                    return tag.toLowerCase().startsWith(currentInputSegment.toLowerCase());
+                    return tag.toLowerCase().startsWith(e.target.value.toLowerCase());
                   });
                   setTagSuggestions(filtered);
                 } else {
@@ -227,75 +247,47 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
                 }
               }}
               onKeyDown={(e) => {
-                if (tagSuggestions.length > 0) {
-                  if (e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    setFocusedSuggestionIndex(prevIndex => (prevIndex + 1) % tagSuggestions.length);
-                  } else if (e.key === 'ArrowUp') {
-                    e.preventDefault();
-                    setFocusedSuggestionIndex(prevIndex => (prevIndex - 1 + tagSuggestions.length) % tagSuggestions.length);
-                  } else if (e.key === 'Enter' || e.key === 'Tab') {
-                    e.preventDefault();
-                    const suggestionToUse = focusedSuggestionIndex !== -1 
-                      ? tagSuggestions[focusedSuggestionIndex] 
-                      : tagSuggestions[0];
-                    
-                    const currentTagsArray = tags.split(',').map(t => t.trim());
-                    const lastTagPart = currentTagsArray[currentTagsArray.length - 1];
-
-                    // Find the common prefix to determine what part to append
-                    let commonPrefix = '';
-                    for (let i = 0; i < lastTagPart.length && i < suggestionToUse.length; i++) {
-                      if (lastTagPart[i].toLowerCase() === suggestionToUse[i].toLowerCase()) {
-                        commonPrefix += suggestionToUse[i];
-                      } else {
-                        break;
-                      }
+                if (e.key === 'Enter' || e.key === ',') {
+                  e.preventDefault();
+                  const newTag = newTagInput.trim();
+                  if (newTag) {
+                    const currentTags = tags.split(',').map(t => t.trim()).filter(t => t !== '');
+                    if (!currentTags.includes(newTag)) {
+                      currentTags.push(newTag);
+                      setTags(currentTags.join(', '));
                     }
-
-                    // Determine the next segment to append
-                    let nextSegment = suggestionToUse.substring(commonPrefix.length);
-                    if (nextSegment.includes('/')) {
-                      nextSegment = nextSegment.substring(0, nextSegment.indexOf('/') + 1);
-                    }
-
-                    // Update the tags string
-                    currentTagsArray[currentTagsArray.length - 1] = lastTagPart + nextSegment;
-                    setTags(currentTagsArray.join(', '));
+                    setNewTagInput('');
                     setTagSuggestions([]);
-                    setFocusedSuggestionIndex(-1);
                   }
                 }
               }}
-              placeholder="Tagname/Child-tag"
+              placeholder="Type to add tags (press Enter or comma)"
             />
+            
+            {/* Tag Suggestions */}
             {tagSuggestions.length > 0 && (
               <div className="absolute z-10 bg-card border border-border rounded-md shadow-lg mt-1 w-full max-h-48 overflow-y-auto">
                 {tagSuggestions.map((suggestion, index) => (
                   <div
                     key={index}
-                    className={`p-2 cursor-pointer hover:bg-muted text-foreground ${index === focusedSuggestionIndex ? 'bg-muted' : ''}`}
+                    className="p-2 cursor-pointer hover:bg-muted text-foreground"
                     onClick={() => {
-                      const currentTags = tags.split(',').map(t => t.trim());
-                      const lastTagPart = currentTags[currentTags.length - 1];
-                      if (currentTags.length > 0 && lastTagPart !== '') {
-                        currentTags[currentTags.length - 1] = suggestion;
+                      const currentTags = tags.split(',').map(t => t.trim()).filter(t => t !== '');
+                      if (!currentTags.includes(suggestion)) {
+                        currentTags.push(suggestion);
                         setTags(currentTags.join(', '));
-                      } else {
-                        setTags(prevTags => (prevTags ? `${prevTags}, ${suggestion}` : suggestion));
                       }
+                      setNewTagInput('');
                       setTagSuggestions([]);
-                      setFocusedSuggestionIndex(-1);
                     }}
                     onContextMenu={(e) => {
                       e.preventDefault();
                       if (onDeleteTag && window.confirm(`Delete the tag "${suggestion}" from all dreams?`)) {
                         onDeleteTag(suggestion);
                         setTagSuggestions([]);
-                        setFocusedSuggestionIndex(-1);
                       }
                     }}
-                    title="Left-click to select, right-click to delete tag"
+                    title="Left-click to add, right-click to delete from all dreams"
                   >
                     {suggestion}
                   </div>
