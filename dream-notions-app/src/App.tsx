@@ -289,15 +289,33 @@ function App() {
 
       // Subscribe to real-time updates from Firestore for notepad
       notepadUnsubscribe = firestoreService.subscribeToNotepadTabs(user.uid, (firebaseNotepadTabs) => {
+        addDebugLog(`📝 Received notepad update from Firebase: ${firebaseNotepadTabs.length} tabs`);
+        
         if (firebaseNotepadTabs.length > 0) {
-          addDebugLog(`📝 Received ${firebaseNotepadTabs.length} notepad tabs from Firestore`);
+          addDebugLog(`📝 Setting notepad tabs from Firebase`);
           setNotepadTabs(firebaseNotepadTabs);
         } else {
-          // Migrate local notepad tabs to Firebase
+          // Check if we have local notepad data to migrate
           const localTabs = loadFromLocalStorage('notepad_tabs', null);
           if (localTabs && localTabs.length > 0) {
             addDebugLog(`🔄 Migrating ${localTabs.length} notepad tabs from localStorage to Firebase`);
-            setNotepadTabs(localTabs);
+            // Save local tabs to Firebase
+            firestoreService.saveNotepadTabs(localTabs, user.uid).then(() => {
+              addDebugLog(`✅ Successfully migrated notepad tabs to Firebase`);
+              setNotepadTabs(localTabs);
+            }).catch(error => {
+              addDebugLog(`❌ Failed to migrate notepad tabs: ${error}`);
+              // Fall back to local tabs if migration fails
+              setNotepadTabs(localTabs);
+            });
+          } else {
+            addDebugLog(`📝 No notepad data found, using default tabs`);
+            // Set default tabs if no data exists
+            const defaultTabs = [
+              { id: 'todo', name: 'To Do', content: '', isDeletable: false },
+              { id: 'notes', name: 'Notes', content: '', isDeletable: true }
+            ];
+            setNotepadTabs(defaultTabs);
           }
         }
       });
@@ -359,14 +377,20 @@ function App() {
     // Save notepad tabs to Firebase if user is authenticated, otherwise localStorage
     if (user) {
       // Use Firebase for authenticated users
-      firestoreService.saveNotepadTabs(notepadTabs, user.uid).catch(error => {
-        console.error('Failed to save notepad tabs to Firebase:', error);
-      });
+      // Add debouncing to prevent excessive saves
+      const timeoutId = setTimeout(() => {
+        firestoreService.saveNotepadTabs(notepadTabs, user.uid).catch(error => {
+          console.error('Failed to save notepad tabs to Firebase:', error);
+          addDebugLog(`❌ Failed to save notepad tabs: ${error}`);
+        });
+      }, 500); // 500ms debounce
+
+      return () => clearTimeout(timeoutId);
     } else {
       // Use localStorage for unauthenticated users
       saveToLocalStorage('notepad_tabs', notepadTabs);
     }
-  }, [notepadTabs, user]);
+  }, [notepadTabs, user, addDebugLog]);
 
   useEffect(() => {
     saveToLocalStorage('app_subheader', subheader);
