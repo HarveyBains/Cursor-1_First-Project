@@ -7,7 +7,7 @@ const ICON_COLORS = [
   '#34D399', // Green
   '#60A5FA', // Blue
   '#A78BFA', // Purple
-  '#F472B6', // Pink
+  '#FFFFFF', // White
   '#F97316', // Orange
   '#2DD4BF', // Teal
 ];

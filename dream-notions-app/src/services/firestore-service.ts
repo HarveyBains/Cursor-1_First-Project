@@ -6,6 +6,7 @@ import {
   addDoc, 
   updateDoc, 
   deleteDoc, 
+  setDoc,
   query, 
   where, 
   onSnapshot,
@@ -389,6 +390,66 @@ export class FirestoreService {
     } catch (error) {
       console.error('❌ Firebase connection test failed:', error);
     }
+  }
+
+  // Notepad sync methods
+  async saveNotepadTabs(tabs: any[], userId: string): Promise<void> {
+    try {
+      console.log('📝 Saving notepad tabs to Firebase...');
+      const notepadRef = doc(db, 'notepads', userId);
+      
+      // Use setDoc with merge option to create or update
+      await setDoc(notepadRef, {
+        userId: userId,
+        tabs: tabs,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+      
+      console.log('✅ Notepad tabs saved successfully');
+    } catch (error) {
+      console.error('❌ Error saving notepad tabs:', error);
+      throw error;
+    }
+  }
+
+  async getNotepadTabs(userId: string): Promise<any[]> {
+    try {
+      console.log('📝 Loading notepad tabs from Firebase...');
+      const notepadRef = doc(db, 'notepads', userId);
+      const docSnapshot = await getDoc(notepadRef);
+      
+      if (docSnapshot.exists()) {
+        const data = docSnapshot.data();
+        console.log('✅ Notepad tabs loaded successfully');
+        return data.tabs || [];
+      } else {
+        console.log('📝 No notepad data found for user');
+        return [];
+      }
+    } catch (error) {
+      console.error('❌ Error loading notepad tabs:', error);
+      throw error;
+    }
+  }
+
+  subscribeToNotepadTabs(userId: string, callback: (tabs: any[]) => void): Unsubscribe {
+    const notepadRef = doc(db, 'notepads', userId);
+    
+    const unsubscribe = onSnapshot(notepadRef, (doc) => {
+      if (doc.exists()) {
+        const data = doc.data();
+        console.log('📝 Notepad tabs updated from Firebase');
+        callback(data.tabs || []);
+      } else {
+        console.log('📝 No notepad data found');
+        callback([]);
+      }
+    }, (error) => {
+      console.error('❌ Error in notepad subscription:', error);
+    });
+
+    this.unsubscribes.push(unsubscribe);
+    return unsubscribe;
   }
 
   cleanup(): void {

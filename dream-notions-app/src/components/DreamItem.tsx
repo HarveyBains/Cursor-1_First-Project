@@ -101,26 +101,33 @@ const DreamItem: React.FC<DreamItemProps> = ({ dream, index, onMove, onEdit, onD
       <div className="flex items-center gap-1.5">
         <div className="flex-shrink-0 w-12 flex items-center justify-center gap-1">
           <div className="text-muted-foreground text-xs leading-none">⋮⋮</div>
-          <div className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden text-white"
-            style={dream.iconColor ? { backgroundColor: dream.iconColor } : {}} // Apply background only if color is set
+          <div className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden border border-white/30"
+            style={dream.iconColor ? { backgroundColor: dream.iconColor } : { backgroundColor: '#6B7280' }} // Apply background color or default grey
           >
           </div>
         </div>
         <div className="flex-1 ml-1 min-w-0">
-          <div className="flex items-center justify-between">
+          <div className="flex items-start justify-between">
             <div className="flex-1 flex flex-col flex-grow min-w-0">
-              <div className="flex items-center gap-2 mb-0.5 min-w-0 flex-wrap">
-                <h3 className="font-semibold text-primary text-sm leading-tight break-words whitespace-normal min-w-0 flex-shrink">
+              {/* Line 1: Date and Title */}
+              <div className="flex items-center gap-2 mb-0.5 min-w-0">
+                <h3 className="font-semibold text-primary text-sm leading-tight break-words whitespace-normal min-w-0 flex-shrink truncate">
                   {formattedDate} - {dream.name}
                 </h3>
-                <div className="flex gap-1 flex-wrap min-w-0">
-                  {dream.tags && dream.tags.map((tag, index) => (
+              </div>
+              
+              {/* Line 2: Tags (truncated if needed) */}
+              {dream.tags && dream.tags.length > 0 && (
+                <div className="flex gap-1 flex-wrap min-w-0 mb-0.5 overflow-hidden max-h-6">
+                  {dream.tags.map((tag, index) => (
                     <span key={index} className="px-1.5 py-0.5 text-xs rounded-full font-medium whitespace-nowrap flex-shrink-0 bg-primary/10 text-primary border border-primary/20">
                       {tag}
                     </span>
                   ))}
                 </div>
-              </div>
+              )}
+              
+              {/* Line 3: Description */}
               <p className="text-muted-foreground text-xs line-clamp-1 leading-tight min-w-0">
                 {dream.description}
               </p>

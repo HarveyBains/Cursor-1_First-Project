@@ -239,14 +239,15 @@ function App() {
 
   // Firebase sync effect
   useEffect(() => {
-    let unsubscribe: (() => void) | null = null;
+    let dreamsUnsubscribe: (() => void) | null = null;
+    let notepadUnsubscribe: (() => void) | null = null;
     
     if (user) {
       addDebugLog(`🔥 Setting up Firestore subscription for user: ${user.uid}`);
       addDebugLog(`👤 User info: ${user.displayName} (${user.email})`);
       
-      // Subscribe to real-time updates from Firestore
-      unsubscribe = firestoreService.subscribeToUserDreams(user.uid, async (firestoreDreams) => {
+      // Subscribe to real-time updates from Firestore for dreams
+      dreamsUnsubscribe = firestoreService.subscribeToUserDreams(user.uid, async (firestoreDreams) => {
         addDebugLog(`📥 Received ${firestoreDreams.length} dreams from Firestore`);
         
         // Check if this is the first sign-in and we have localStorage data but no Firebase data
@@ -285,6 +286,21 @@ function App() {
         }
         setDreams(firestoreDreams);
       });
+
+      // Subscribe to real-time updates from Firestore for notepad
+      notepadUnsubscribe = firestoreService.subscribeToNotepadTabs(user.uid, (firebaseNotepadTabs) => {
+        if (firebaseNotepadTabs.length > 0) {
+          addDebugLog(`📝 Received ${firebaseNotepadTabs.length} notepad tabs from Firestore`);
+          setNotepadTabs(firebaseNotepadTabs);
+        } else {
+          // Migrate local notepad tabs to Firebase
+          const localTabs = loadFromLocalStorage('notepad_tabs', null);
+          if (localTabs && localTabs.length > 0) {
+            addDebugLog(`🔄 Migrating ${localTabs.length} notepad tabs from localStorage to Firebase`);
+            setNotepadTabs(localTabs);
+          }
+        }
+      });
     } else {
       addDebugLog('❌ No user, loading from localStorage');
       // If no user, load from localStorage
@@ -292,11 +308,20 @@ function App() {
       const cleanedDreams = cleanDreamTags(loadedDreams);
       addDebugLog(`💾 Loaded ${cleanedDreams.length} dreams from localStorage`);
       setDreams(cleanedDreams);
+      
+      // Load notepad tabs from localStorage
+      const localTabs = loadFromLocalStorage('notepad_tabs', null);
+      if (localTabs) {
+        setNotepadTabs(localTabs);
+      }
     }
     
     return () => {
-      if (unsubscribe) {
-        unsubscribe();
+      if (dreamsUnsubscribe) {
+        dreamsUnsubscribe();
+      }
+      if (notepadUnsubscribe) {
+        notepadUnsubscribe();
       }
     };
   }, [user, addDebugLog]);
@@ -313,8 +338,17 @@ function App() {
   }, [version]);
 
   useEffect(() => {
-    saveToLocalStorage('notepad_tabs', notepadTabs);
-  }, [notepadTabs]);
+    // Save notepad tabs to Firebase if user is authenticated, otherwise localStorage
+    if (user) {
+      // Use Firebase for authenticated users
+      firestoreService.saveNotepadTabs(notepadTabs, user.uid).catch(error => {
+        console.error('Failed to save notepad tabs to Firebase:', error);
+      });
+    } else {
+      // Use localStorage for unauthenticated users
+      saveToLocalStorage('notepad_tabs', notepadTabs);
+    }
+  }, [notepadTabs, user]);
 
   useEffect(() => {
     saveToLocalStorage('app_subheader', subheader);
@@ -684,9 +718,9 @@ function App() {
           {/* UPDATED: App title with version in description */}
           <div className="flex-1 text-center px-2 min-w-0">
             <div className="flex items-center justify-center mb-1">
-              <h1 className="text-lg font-semibold text-primary">Dream-Notions</h1>
+              <h1 className="text-lg font-semibold text-primary truncate max-w-full">Dream-Notions</h1>
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground truncate max-w-full">
               {isEditingSubheader ? (
                 <VersionEditor
                   initialVersion={subheader}
