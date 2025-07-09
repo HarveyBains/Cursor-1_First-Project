@@ -79,11 +79,7 @@ function App() {
   const { user, signInWithGoogle, signOutUser } = useAuth();
   // Initialize dreams state (will be synced with Firestore when user is authenticated)
   const [dreams, setDreams] = useState<DreamEntry[]>(() => {
-    if (user) {
-      // If user is authenticated, start with empty array - will be loaded from Firestore
-      return [];
-    }
-    // For unauthenticated users, load from localStorage
+    // Start with localStorage data by default - will be replaced by Firestore if user is authenticated
     const loadedDreams = loadFromLocalStorage('dreams_local', []);
     const cleanedDreams = cleanDreamTags(loadedDreams);
     // Save back cleaned dreams if any were changed

@@ -31,9 +31,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const unsubscribe = auth.onAuthStateChanged((firebaseUser) => {
       setUser(firebaseUser);
       setLoading(false);
+    }, (error) => {
+      console.error('Auth state change error:', error);
+      setLoading(false);
     });
-    return unsubscribe;
-  }, []);
+    
+    // Fallback timeout in case Firebase doesn't respond
+    const timeout = setTimeout(() => {
+      if (loading) {
+        console.warn('Firebase auth taking too long, proceeding without auth');
+        setLoading(false);
+      }
+    }, 5000);
+    
+    return () => {
+      unsubscribe();
+      clearTimeout(timeout);
+    };
+  }, [loading]);
 
   const signInWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
@@ -56,7 +71,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {loading ? (
+        <div className="min-h-screen flex items-center justify-center bg-background">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading...</p>
+          </div>
+        </div>
+      ) : (
+        children
+      )}
     </AuthContext.Provider>
   );
 };
