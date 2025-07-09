@@ -21,9 +21,10 @@ interface DreamFormProps {
   dreamToEdit?: DreamEntry | null;
   taskTitles: string[];
   allTags: string[];
+  allDreams: DreamEntry[]; // Add allDreams prop
 }
 
-const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToEdit, taskTitles, allTags }) => {
+const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToEdit, taskTitles, allTags, allDreams }) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [isFavorite, setIsFavorite] = useState(false);
@@ -33,6 +34,27 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
   const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
   const [focusedSuggestionIndex, setFocusedSuggestionIndex] = useState(-1);
   const [dreamDate, setDreamDate] = useState<string>(''); // YYYY-MM-DD format for input type="date"
+
+  // Compute icon color usage frequency
+  const iconColorCounts: Record<string, number> = React.useMemo(() => {
+    const counts: Record<string, number> = {};
+    allDreams.forEach(dream => {
+      if (dream.iconColor) {
+        counts[dream.iconColor] = (counts[dream.iconColor] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [allDreams]);
+
+  // Sort ICON_COLORS by usage frequency (descending), unused at the end
+  const sortedIconColors = React.useMemo(() => {
+    return [...ICON_COLORS].sort((a, b) => {
+      const countA = iconColorCounts[a] || 0;
+      const countB = iconColorCounts[b] || 0;
+      if (countA === countB) return 0;
+      return countB - countA;
+    });
+  }, [iconColorCounts]);
 
   useEffect(() => {
     if (isOpen) {
@@ -172,7 +194,7 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </div>
-              {ICON_COLORS.map((color) => (
+              {sortedIconColors.map((color) => (
                 <div
                   key={color}
                   className={`w-8 h-8 rounded-full cursor-pointer border-2 ${iconColor === color ? 'border-primary' : 'border-transparent'}`}

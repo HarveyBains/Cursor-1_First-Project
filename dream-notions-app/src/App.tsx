@@ -488,6 +488,7 @@ function App() {
         dreamToEdit={selectedDream}
         taskTitles={taskTitles}
         allTags={allTags}
+        allDreams={dreams}
       />
 
       {/* Delete Confirmation Dialog */}
