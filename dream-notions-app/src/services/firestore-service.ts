@@ -364,7 +364,7 @@ export class FirestoreService {
       // Test 1: Try to read dreams
       const dreamsRef = collection(db, 'dreams');
       const testQuery = query(dreamsRef, where('userId', '==', 'test'));
-      const querySnapshot = await getDocs(testQuery);
+      await getDocs(testQuery);
       console.log('✅ Read operation works');
       
       // Test 2: Try to create a test document
