@@ -2,14 +2,14 @@ import {
   collection, 
   doc, 
   getDocs, 
+  getDoc,
   addDoc, 
   updateDoc, 
   deleteDoc, 
   query, 
   where, 
   onSnapshot,
-  type Unsubscribe,
-  getDoc
+  type Unsubscribe
 } from 'firebase/firestore';
 import { db } from './firebase-config';
 import { type DreamEntry } from '../types/DreamEntry';
