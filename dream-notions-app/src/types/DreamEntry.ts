@@ -9,4 +9,6 @@ export interface DreamEntry {
   iconColor?: string;
   displayOrder?: number;
   userId?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }

@@ -1,18 +1,20 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyAgTG6QIjabrxce6TXQ1EpHxnAuq__t4iM",
+  authDomain: "cursor-mydreamsapp.firebaseapp.com",
+  projectId: "cursor-mydreamsapp",
+  storageBucket: "cursor-mydreamsapp.firebasestorage.app",
+  messagingSenderId: "560129086799",
+  appId: "1:560129086799:web:94be8a8455db941b66a13a"
 };
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const db = getFirestore(app);
 
-export { auth };
+export { auth, db };

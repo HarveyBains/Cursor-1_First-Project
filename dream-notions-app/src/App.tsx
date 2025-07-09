@@ -9,6 +9,7 @@ import NotepadDialog from './components/NotepadDialog';
 import { DragDropProvider } from './components/DragDropProvider';
 import { saveToLocalStorage, loadFromLocalStorage } from './utils/localStorageUtils';
 import { exportDreams } from './utils/importExportUtils';
+import { firestoreService } from './services/firestore-service';
 import './index.css';
 import type { DreamEntry } from './types/DreamEntry';
 import { useAuth } from './components/AuthProvider';
@@ -76,8 +77,13 @@ function cleanDreamTags(dreams: DreamEntry[]) {
 
 function App() {
   const { user, signInWithGoogle, signOutUser } = useAuth();
-  // On load, clean dreams from localStorage
+  // Initialize dreams state (will be synced with Firestore when user is authenticated)
   const [dreams, setDreams] = useState<DreamEntry[]>(() => {
+    if (user) {
+      // If user is authenticated, start with empty array - will be loaded from Firestore
+      return [];
+    }
+    // For unauthenticated users, load from localStorage
     const loadedDreams = loadFromLocalStorage('dreams_local', []);
     const cleanedDreams = cleanDreamTags(loadedDreams);
     // Save back cleaned dreams if any were changed
@@ -195,9 +201,35 @@ function App() {
     localStorage.setItem('theme', JSON.stringify(isDarkMode));
   }, [isDarkMode]);
 
+  // Firebase sync effect
   useEffect(() => {
-    saveToLocalStorage('dreams_local', dreams);
-  }, [dreams]);
+    let unsubscribe: (() => void) | null = null;
+    
+    if (user) {
+      // Subscribe to real-time updates from Firestore
+      unsubscribe = firestoreService.subscribeToUserDreams(user.uid, (firestoreDreams) => {
+        setDreams(firestoreDreams);
+      });
+    } else {
+      // If no user, load from localStorage
+      const loadedDreams = loadFromLocalStorage('dreams_local', []);
+      const cleanedDreams = cleanDreamTags(loadedDreams);
+      setDreams(cleanedDreams);
+    }
+    
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, [user]);
+
+  useEffect(() => {
+    // Only save to localStorage for unauthenticated users
+    if (!user) {
+      saveToLocalStorage('dreams_local', dreams);
+    }
+  }, [dreams, user]);
 
   useEffect(() => {
     saveToLocalStorage('app_version', version);
@@ -222,22 +254,49 @@ function App() {
     setShowImportDialog(false);
   };
 
-  const handleAddDream = (newDream: DreamEntry) => {
-    setDreams((prevDreams) => {
-      if (newDream.id && prevDreams.some(d => d.id === newDream.id)) {
-        // Update existing dream
-        return prevDreams.map(dream => dream.id === newDream.id ? newDream : dream);
-      } else {
-        // Add new dream
-        return [...prevDreams, { ...newDream, id: Date.now().toString(), timestamp: Date.now() }];
+  const handleAddDream = async (newDream: DreamEntry) => {
+    if (user) {
+      // Use Firebase for authenticated users
+      try {
+        if (newDream.id && dreams.some(d => d.id === newDream.id)) {
+          // Update existing dream
+          await firestoreService.updateDream(newDream.id, newDream);
+        } else {
+          // Add new dream
+          const dreamData = { ...newDream, timestamp: Date.now() };
+          await firestoreService.saveDream(dreamData, user.uid);
+        }
+      } catch (error) {
+        console.error('Error saving dream to Firebase:', error);
       }
-    });
+    } else {
+      // Use localStorage for unauthenticated users
+      setDreams((prevDreams) => {
+        if (newDream.id && prevDreams.some(d => d.id === newDream.id)) {
+          // Update existing dream
+          return prevDreams.map(dream => dream.id === newDream.id ? newDream : dream);
+        } else {
+          // Add new dream
+          return [...prevDreams, { ...newDream, id: Date.now().toString(), timestamp: Date.now() }];
+        }
+      });
+    }
     setShowAddDreamForm(false);
     setSelectedDream(null);
   };
 
-  const handleClearAllDreams = () => {
-    setDreams([]);
+  const handleClearAllDreams = async () => {
+    if (user) {
+      // Use Firebase for authenticated users
+      try {
+        await firestoreService.deleteAllUserDreams(user.uid);
+      } catch (error) {
+        console.error('Error deleting all dreams from Firebase:', error);
+      }
+    } else {
+      // Use localStorage for unauthenticated users
+      setDreams([]);
+    }
     setShowDeleteAllConfirmDialog(false);
   };
 
@@ -262,9 +321,19 @@ function App() {
     setIsEditingSubheader(true);
   };
 
-  const handleDeleteDream = () => {
+  const handleDeleteDream = async () => {
     if (dreamToDeleteId) {
-      setDreams(prevDreams => prevDreams.filter(dream => dream.id !== dreamToDeleteId));
+      if (user) {
+        // Use Firebase for authenticated users
+        try {
+          await firestoreService.deleteDream(dreamToDeleteId);
+        } catch (error) {
+          console.error('Error deleting dream from Firebase:', error);
+        }
+      } else {
+        // Use localStorage for unauthenticated users
+        setDreams(prevDreams => prevDreams.filter(dream => dream.id !== dreamToDeleteId));
+      }
       setDreamToDeleteId(null);
       setShowDeleteConfirmDialog(false);
     }
