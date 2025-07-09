@@ -396,6 +396,10 @@ export class FirestoreService {
   async saveNotepadTabs(tabs: any[], userId: string): Promise<void> {
     try {
       console.log('📝 Saving notepad tabs to Firebase...');
+      console.log(`📝 User ID: ${userId}`);
+      console.log(`📝 Tabs count: ${tabs.length}`);
+      console.log(`📝 Tabs data:`, tabs);
+      
       const notepadRef = doc(db, 'notepads', userId);
       
       // Use setDoc with merge option to create or update
@@ -405,9 +409,15 @@ export class FirestoreService {
         updatedAt: new Date().toISOString()
       }, { merge: true });
       
-      console.log('✅ Notepad tabs saved successfully');
+      console.log('✅ Notepad tabs saved successfully to Firebase');
     } catch (error) {
       console.error('❌ Error saving notepad tabs:', error);
+      if (error instanceof Error) {
+        console.error('Error message:', error.message);
+      }
+      if (error && typeof error === 'object' && 'code' in error) {
+        console.error('Error code:', error.code);
+      }
       throw error;
     }
   }
@@ -433,19 +443,25 @@ export class FirestoreService {
   }
 
   subscribeToNotepadTabs(userId: string, callback: (tabs: any[]) => void): Unsubscribe {
+    console.log(`📝 Setting up notepad subscription for user: ${userId}`);
     const notepadRef = doc(db, 'notepads', userId);
     
     const unsubscribe = onSnapshot(notepadRef, (doc) => {
       if (doc.exists()) {
         const data = doc.data();
-        console.log('📝 Notepad tabs updated from Firebase');
-        callback(data.tabs || []);
+        console.log('📝 Notepad tabs updated from Firebase:', data);
+        const tabs = data.tabs || [];
+        console.log(`📝 Found ${tabs.length} notepad tabs`);
+        callback(tabs);
       } else {
-        console.log('📝 No notepad data found');
+        console.log('📝 No notepad data found in Firebase');
         callback([]);
       }
     }, (error) => {
       console.error('❌ Error in notepad subscription:', error);
+      console.error('Error details:', error.code, error.message);
+      // Return empty array on error to prevent crashes
+      callback([]);
     });
 
     this.unsubscribes.push(unsubscribe);

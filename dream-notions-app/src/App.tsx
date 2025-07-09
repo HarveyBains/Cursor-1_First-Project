@@ -556,6 +556,7 @@ function App() {
   };
 
   const handleSaveNotepad = (tabs: Tab[]) => {
+    addDebugLog(`📝 Saving notepad with ${tabs.length} tabs`);
     setNotepadTabs(tabs);
     setShowNotepadDialog(false);
   };
@@ -734,6 +735,63 @@ function App() {
     }
   };
 
+  const handleTestNotepadSync = async () => {
+    if (!user) {
+      addDebugLog('❌ No user logged in - cannot test notepad sync');
+      return;
+    }
+
+    addDebugLog('🧪 Testing notepad synchronization...');
+    addDebugLog(`👤 User ID: ${user.uid}`);
+    addDebugLog(`📝 Current notepad tabs: ${notepadTabs.length}`);
+    
+    try {
+      // Test 1: Save current notepad data
+      addDebugLog('📤 Saving current notepad data to Firebase...');
+      await firestoreService.saveNotepadTabs(notepadTabs, user.uid);
+      addDebugLog('✅ Notepad data saved successfully');
+      
+      // Test 2: Read notepad data back
+      addDebugLog('📥 Reading notepad data from Firebase...');
+      const retrievedTabs = await firestoreService.getNotepadTabs(user.uid);
+      addDebugLog(`📝 Retrieved ${retrievedTabs.length} tabs from Firebase`);
+      
+      // Test 3: Compare data
+      const currentData = JSON.stringify(notepadTabs);
+      const retrievedData = JSON.stringify(retrievedTabs);
+      
+      if (currentData === retrievedData) {
+        addDebugLog('✅ Notepad data matches between local and Firebase');
+      } else {
+        addDebugLog('❌ Notepad data mismatch between local and Firebase');
+        addDebugLog(`📋 Local data: ${currentData}`);
+        addDebugLog(`📋 Firebase data: ${retrievedData}`);
+      }
+      
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      addDebugLog(`❌ Notepad sync test failed: ${errorMsg}`);
+    }
+  };
+
+  const handleForceNotepadSync = async () => {
+    if (!user) {
+      addDebugLog('❌ No user logged in - cannot force notepad sync');
+      return;
+    }
+
+    addDebugLog('🔄 Force syncing notepad to Firebase...');
+    addDebugLog(`📝 Current tabs: ${notepadTabs.length}`);
+    
+    try {
+      await firestoreService.saveNotepadTabs(notepadTabs, user.uid);
+      addDebugLog('✅ Force sync completed successfully');
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      addDebugLog(`❌ Force sync failed: ${errorMsg}`);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="bg-card border-b border-border px-4 py-3 sticky top-0 z-40">
@@ -869,6 +927,18 @@ function App() {
                       className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
                     >
                       Test Firebase
+                    </button>
+                    <button
+                      onClick={handleTestNotepadSync}
+                      className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
+                    >
+                      Test Notepad Sync
+                    </button>
+                    <button
+                      onClick={handleForceNotepadSync}
+                      className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
+                    >
+                      Force Notepad Sync
                     </button>
                   </>
                 )}
