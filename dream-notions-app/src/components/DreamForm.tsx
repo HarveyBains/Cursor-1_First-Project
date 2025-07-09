@@ -2,16 +2,14 @@ import React, { useState, useEffect } from 'react';
 import type { DreamEntry } from '../types/DreamEntry';
 
 const ICON_COLORS = [
-  '#F77536', // Primary Orange
-  '#8A2BE2', // Blue Violet (similar to primary purple)
-  '#32CD32', // Lime Green
-  '#1E90FF', // Dodger Blue
-  '#FFD700', // Gold
-  '#FF69B4', // Hot Pink
-  '#00CED1', // Dark Turquoise
-  '#FF4500', // Orange Red
-  '#9370DB', // Medium Purple
-  '#20B2AA', // Light Sea Green
+  '#F87171', // Red
+  '#FBBF24', // Yellow/Amber
+  '#34D399', // Green
+  '#60A5FA', // Blue
+  '#A78BFA', // Purple
+  '#F472B6', // Pink
+  '#F97316', // Orange
+  '#2DD4BF', // Teal
 ];
 
 interface DreamFormProps {
@@ -124,26 +122,26 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-muted p-6 rounded-lg shadow-xl w-full max-w-md border border-border">
-        <h2 className="text-xl font-semibold mb-4 text-foreground">{dreamToEdit ? 'Edit Dream' : 'Add New Dream'}</h2>
+      <div className="bg-card p-6 rounded-lg shadow-xl w-full max-w-md border border-border">
+        <h2 className="text-xl mb-4 text-foreground">{dreamToEdit ? 'Edit Dream' : 'Add New Dream'}</h2>
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label htmlFor="dreamDate" className="block text-sm font-medium text-muted-foreground mb-1">Date</label>
+            <label htmlFor="dreamDate" className="block text-xs text-foreground mb-1">Date</label>
             <input
               type="date"
               id="dreamDate"
-              className="w-full p-2 border border-border rounded-md bg-gray-400 text-black focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full p-2 border border-border rounded-md bg-background text-foreground text-xs"
               value={dreamDate}
               onChange={(e) => setDreamDate(e.target.value)}
               required
             />
           </div>
           <div className="mb-4">
-            <label htmlFor="name" className="block text-sm font-medium text-muted-foreground mb-1">Dream Title</label>
+            <label htmlFor="name" className="block text-xs text-foreground mb-1">Dream Title</label>
             <input
               type="text"
               id="name"
-              className="w-full p-2 border border-border rounded-md bg-gray-400 text-black focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full p-2 border border-border rounded-md bg-background text-foreground text-xs"
               value={name}
               onChange={handleNameChange}
               required
@@ -163,11 +161,11 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
             )}
           </div>
           <div className="mb-4">
-            <label htmlFor="description" className="block text-sm font-medium text-muted-foreground mb-1">Description</label>
+            <label htmlFor="description" className="block text-xs text-foreground mb-1">Description</label>
             <textarea
               id="description"
               rows={4}
-              className="w-full p-2 border border-border rounded-md bg-gray-400 text-black focus:outline-none focus:ring-2 focus:ring-primary font-sans"
+              className="w-full p-2 border border-border rounded-md bg-background text-foreground text-xs"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             ></textarea>
@@ -180,10 +178,10 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
               checked={isFavorite}
               onChange={(e) => setIsFavorite(e.target.checked)}
             />
-            <label htmlFor="isFavorite" className="text-sm font-medium text-muted-foreground">Mark as Favorite</label>
+            <label htmlFor="isFavorite" className="text-xs font-medium text-foreground">Mark as Favorite</label>
           </div>
           <div className="mb-4">
-            <label className="block text-sm font-medium text-muted-foreground mb-1">Icon Color</label>
+            <label className="block text-xs text-foreground mb-1">Icon Color</label>
             <div className="flex gap-2">
               <div
                 className={`w-8 h-8 rounded-full cursor-pointer border-2 ${iconColor === '' ? 'border-primary' : 'border-transparent'} flex items-center justify-center text-muted-foreground`}
@@ -205,11 +203,11 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
             </div>
           </div>
           <div className="mb-6">
-            <label htmlFor="tags" className="block text-sm font-medium text-muted-foreground mb-1">Tags (comma-separated)</label>
+            <label htmlFor="tags" className="block text-xs text-foreground mb-1">Tags (comma-separated)</label>
             <input
               type="text"
               id="tags"
-              className="w-full p-2 border border-border rounded-md bg-gray-400 text-black focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full p-2 border border-border rounded-md bg-background text-foreground text-xs"
               value={tags}
               onChange={(e) => {
                 const inputValue = e.target.value;

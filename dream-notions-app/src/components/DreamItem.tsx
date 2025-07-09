@@ -102,7 +102,7 @@ const DreamItem: React.FC<DreamItemProps> = ({ dream, index, onToggleFavorite, o
       <div className="flex items-center gap-1.5">
         <div className="flex-shrink-0 w-12 flex flex-col items-center">
           <div className="text-muted-foreground text-xs leading-none mb-0.5">⋮⋮</div>
-          <div className="w-7 h-7 rounded-full flex items-center justify-center mb-0.5 flex-shrink-0 overflow-hidden text-white"
+          <div className="w-5 h-5 rounded-full flex items-center justify-center mb-0.5 flex-shrink-0 overflow-hidden text-white"
             style={dream.iconColor ? { backgroundColor: dream.iconColor } : {}} // Apply background only if color is set
           >
           </div>

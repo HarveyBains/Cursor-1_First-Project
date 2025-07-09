@@ -411,7 +411,7 @@ function App() {
               </button>
             )}
             {currentVisibleTags
-              .filter(tag => tag !== '★' && tag !== 'star' && tag !== 'favorites')
+              .filter(tag => tag !== '★') // Hide the star icon from tag filter UI
               .map(tag => (
                 <button
                   key={tag}
