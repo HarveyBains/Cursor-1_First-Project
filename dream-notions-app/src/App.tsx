@@ -29,7 +29,7 @@ function App() {
     return savedTheme ? JSON.parse(savedTheme) : true;
   });
   const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'favorites', 'recents'
-  const [sortOrder, setSortOrder] = useState('manual'); // 'manual', 'newest', 'oldest'
+  const [sortOrder, setSortOrder] = useState('newest'); // 'manual', 'newest', 'oldest'
   const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null);
   const [currentVisibleTags, setCurrentVisibleTags] = useState<string[]>([]);
 
@@ -167,7 +167,8 @@ function App() {
     setSortOrder(prevOrder => {
       if (prevOrder === 'manual') return 'newest';
       if (prevOrder === 'newest') return 'oldest';
-      return 'manual';
+      if (prevOrder === 'oldest') return 'manual';
+      return 'newest'; // Fallback
     });
   };
 

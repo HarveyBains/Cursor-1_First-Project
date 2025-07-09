@@ -90,6 +90,13 @@ const DreamItem: React.FC<DreamItemProps> = ({ dream, index, onToggleFavorite, o
   const opacity = isDragging ? 0 : 1;
   drag(drop(ref));
 
+  // Format date to DD/MM/YY
+  const date = new Date(dream.timestamp);
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = String(date.getFullYear()).slice(-2);
+  const formattedDate = `${day}/${month}/${year}`;
+
   return (
     <div ref={ref} style={{ opacity }} data-handler-id={handlerId} className="bg-card border border-border rounded-lg p-1.5 mb-1.5 shadow-sm hover:shadow-md transition-shadow cursor-move">
       <div className="flex items-center gap-1.5">
@@ -104,11 +111,9 @@ const DreamItem: React.FC<DreamItemProps> = ({ dream, index, onToggleFavorite, o
         <div className="flex-1 ml-1 min-w-0">
           <div className="flex items-center justify-between">
             <div className="flex-1 flex flex-col flex-grow">
-              <div className="flex items-center gap-2 mb-0.5">
-                <h3 className="font-semibold text-primary text-sm leading-tight break-words whitespace-normal">
-                  {dream.name}
-                </h3>
-              </div>
+              <h3 className="font-semibold text-primary text-sm leading-tight break-words whitespace-normal mb-0.5">
+                {formattedDate} - {dream.name}
+              </h3>
               <div className="flex items-center gap-1 mb-0.5 overflow-hidden">
                 <div className="flex gap-1 min-w-0 flex-shrink">
                   {dream.tags && dream.tags.map((tag, index) => (

@@ -32,26 +32,7 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
   const [nameSuggestions, setNameSuggestions] = useState<string[]>([]);
   const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
   const [focusedSuggestionIndex, setFocusedSuggestionIndex] = useState(-1);
-
-  // Helper to parse DD/MM/YY from string
-  const parseDateFromDDMMYY = (dateString: string): number | null => {
-    const match = dateString.match(/^(\d{2})\/(\d{2})\/(\d{2})/);
-    if (match) {
-      const day = parseInt(match[1], 10);
-      const month = parseInt(match[2], 10) - 1; // Month is 0-indexed
-      let year = parseInt(match[3], 10);
-
-      // Handle two-digit years
-      year = year >= 70 ? 1900 + year : 2000 + year;
-
-      const date = new Date(year, month, day);
-      // Check for valid date (e.g., 31/02/2000 would be invalid)
-      if (date.getDate() === day && date.getMonth() === month && date.getFullYear() === year) {
-        return date.getTime();
-      }
-    }
-    return null;
-  };
+  const [dreamDate, setDreamDate] = useState<string>(''); // YYYY-MM-DD format for input type="date"
 
   useEffect(() => {
     if (isOpen) {
@@ -62,15 +43,18 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
         setIsFavorite(dreamToEdit.isFavorite || false);
         setTags(dreamToEdit.tags ? dreamToEdit.tags.join(', ') : '');
         setIconColor(dreamToEdit.iconColor || '');
+        // Set dreamDate from existing timestamp
+        const date = new Date(dreamToEdit.timestamp);
+        setDreamDate(date.toISOString().split('T')[0]);
       } else {
         // Reset form for new dream
         const today = new Date();
-        const formattedDate = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}-`;
-        setName(`${formattedDate} `);
+        setName(''); // No default date in name anymore
         setDescription('');
         setIsFavorite(false);
         setTags('');
         setIconColor('');
+        setDreamDate(today.toISOString().split('T')[0]); // Default to current date
       }
       setNameSuggestions([]); // Clear suggestions when form opens
       setTagSuggestions([]);
@@ -104,7 +88,7 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
     const dreamData: DreamEntry = {
       id: dreamToEdit?.id || Date.now().toString(),
       name: name.trim(),
-      timestamp: parseDateFromDDMMYY(name.trim()) || dreamToEdit?.timestamp || Date.now(),
+      timestamp: new Date(dreamDate).getTime(), // Use dreamDate for timestamp
       description: description.trim() || undefined,
       isFavorite,
       tags: tags.split(',').map(tag => tag.trim()).filter(tag => tag !== ''),
@@ -121,6 +105,17 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
       <div className="bg-muted p-6 rounded-lg shadow-xl w-full max-w-md border border-border">
         <h2 className="text-xl font-semibold mb-4 text-foreground">{dreamToEdit ? 'Edit Dream' : 'Add New Dream'}</h2>
         <form onSubmit={handleSubmit}>
+          <div className="mb-4">
+            <label htmlFor="dreamDate" className="block text-sm font-medium text-muted-foreground mb-1">Date</label>
+            <input
+              type="date"
+              id="dreamDate"
+              className="w-full p-2 border border-border rounded-md bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              value={dreamDate}
+              onChange={(e) => setDreamDate(e.target.value)}
+              required
+            />
+          </div>
           <div className="mb-4">
             <label htmlFor="name" className="block text-sm font-medium text-muted-foreground mb-1">Dream Title</label>
             <input
@@ -151,7 +146,7 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
             <textarea
               id="description"
               rows={4}
-              className="w-full p-2 border border-border rounded-md bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full p-2 border border-border rounded-md bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-sans"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               style={{ color: 'black' }}
@@ -185,7 +180,7 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
             <input
               type="text"
               id="tags"
-              className="w-full p-2 border border-border rounded-md bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full p-2 border border-border rounded-md bg-gray-400 text-black focus:outline-none focus:ring-2 focus:ring-primary"
               value={tags}
               onChange={(e) => {
                 const inputValue = e.target.value;
@@ -263,7 +258,6 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
                 }
               }}
               placeholder="e.g., vivid, recurring, nightmare"
-              style={{ color: 'black' }}
             />
             {tagSuggestions.length > 0 && (
               <div className="absolute z-10 bg-card border border-border rounded-md shadow-lg mt-1 w-full max-h-48 overflow-y-auto">
