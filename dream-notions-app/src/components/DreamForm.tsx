@@ -183,13 +183,18 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
               onChange={(e) => {
                 const inputValue = e.target.value;
                 setTags(inputValue);
-                const lastCommaIndex = inputValue.lastIndexOf(',');
-                const currentTyping = lastCommaIndex !== -1 ? inputValue.substring(lastCommaIndex + 1).trim() : inputValue.trim();
+                setFocusedSuggestionIndex(-1); // Reset focus on typing
 
-                if (currentTyping.length > 0) {
-                  const filtered = allTags.filter(tag =>
-                    tag.toLowerCase().startsWith(currentTyping.toLowerCase())
-                  );
+                const lastCommaIndex = inputValue.lastIndexOf(',');
+                const currentInputSegment = lastCommaIndex !== -1 
+                  ? inputValue.substring(lastCommaIndex + 1).trim() 
+                  : inputValue.trim();
+
+                if (currentInputSegment.length > 0) {
+                  const filtered = allTags.filter(tag => {
+                    // Check if the tag starts with the current segment
+                    return tag.toLowerCase().startsWith(currentInputSegment.toLowerCase());
+                  });
                   setTagSuggestions(filtered);
                 } else {
                   setTagSuggestions([]);
@@ -203,55 +208,36 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
                   } else if (e.key === 'ArrowUp') {
                     e.preventDefault();
                     setFocusedSuggestionIndex(prevIndex => (prevIndex - 1 + tagSuggestions.length) % tagSuggestions.length);
-                  } else if (e.key === 'Enter') {
+                  } else if (e.key === 'Enter' || e.key === 'Tab') {
                     e.preventDefault();
-                    if (focusedSuggestionIndex !== -1) {
-                      const suggestion = tagSuggestions[focusedSuggestionIndex];
-                      const currentTagsArray = tags.split(',').map(t => t.trim());
-                      const lastTagIndex = currentTagsArray.length - 1;
-                      if (currentTagsArray[lastTagIndex] !== '') {
-                        currentTagsArray[lastTagIndex] = suggestion;
-                      } else if (lastTagIndex === 0) {
-                        currentTagsArray[lastTagIndex] = suggestion;
+                    const suggestionToUse = focusedSuggestionIndex !== -1 
+                      ? tagSuggestions[focusedSuggestionIndex] 
+                      : tagSuggestions[0];
+                    
+                    const currentTagsArray = tags.split(',').map(t => t.trim());
+                    const lastTagPart = currentTagsArray[currentTagsArray.length - 1];
+
+                    // Find the common prefix to determine what part to append
+                    let commonPrefix = '';
+                    for (let i = 0; i < lastTagPart.length && i < suggestionToUse.length; i++) {
+                      if (lastTagPart[i].toLowerCase() === suggestionToUse[i].toLowerCase()) {
+                        commonPrefix += suggestionToUse[i];
                       } else {
-                        currentTagsArray.push(suggestion);
+                        break;
                       }
-                      setTags(currentTagsArray.join(', '));
-                      setTagSuggestions([]);
-                      setFocusedSuggestionIndex(-1);
                     }
-                  } else if (e.key === 'Tab') {
-                    e.preventDefault();
-                    if (focusedSuggestionIndex !== -1) {
-                      const suggestion = tagSuggestions[focusedSuggestionIndex];
-                      const currentTagsArray = tags.split(',').map(t => t.trim());
-                      const lastTagIndex = currentTagsArray.length - 1;
-                      if (currentTagsArray[lastTagIndex] !== '') {
-                        currentTagsArray[lastTagIndex] = suggestion;
-                      } else if (lastTagIndex === 0) {
-                        currentTagsArray[lastTagIndex] = suggestion;
-                      } else {
-                        currentTagsArray.push(suggestion);
-                      }
-                      setTags(currentTagsArray.join(', '));
-                      setTagSuggestions([]);
-                      setFocusedSuggestionIndex(-1);
-                    } else if (tagSuggestions.length > 0) {
-                      // If no suggestion is focused, but there are suggestions, select the first one
-                      const suggestion = tagSuggestions[0];
-                      const currentTagsArray = tags.split(',').map(t => t.trim());
-                      const lastTagIndex = currentTagsArray.length - 1;
-                      if (currentTagsArray[lastTagIndex] !== '') {
-                        currentTagsArray[lastTagIndex] = suggestion;
-                      } else if (lastTagIndex === 0) {
-                        currentTagsArray[lastTagIndex] = suggestion;
-                      } else {
-                        currentTagsArray.push(suggestion);
-                      }
-                      setTags(currentTagsArray.join(', '));
-                      setTagSuggestions([]);
-                      setFocusedSuggestionIndex(-1);
+
+                    // Determine the next segment to append
+                    let nextSegment = suggestionToUse.substring(commonPrefix.length);
+                    if (nextSegment.includes('/')) {
+                      nextSegment = nextSegment.substring(0, nextSegment.indexOf('/') + 1);
                     }
+
+                    // Update the tags string
+                    currentTagsArray[currentTagsArray.length - 1] = lastTagPart + nextSegment;
+                    setTags(currentTagsArray.join(', '));
+                    setTagSuggestions([]);
+                    setFocusedSuggestionIndex(-1);
                   }
                 }
               }}
