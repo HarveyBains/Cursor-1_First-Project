@@ -7,7 +7,6 @@ import {
   deleteDoc, 
   query, 
   where, 
-  orderBy, 
   onSnapshot,
   type Unsubscribe 
 } from 'firebase/firestore';
@@ -30,14 +29,22 @@ export class FirestoreService {
       const dreamsRef = collection(db, 'dreams');
       const q = query(
         dreamsRef, 
-        where('userId', '==', userId),
-        orderBy('createdAt', 'desc')
+        where('userId', '==', userId)
       );
       const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(doc => ({
+      const dreams = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       } as DreamEntry));
+      
+      // Sort by timestamp (fallback to createdAt)
+      dreams.sort((a, b) => {
+        const aTime = a.timestamp || new Date(a.createdAt || 0).getTime();
+        const bTime = b.timestamp || new Date(b.createdAt || 0).getTime();
+        return bTime - aTime; // Newest first
+      });
+      
+      return dreams;
     } catch (error) {
       console.error('Error fetching dreams:', error);
       throw error;
@@ -104,18 +111,29 @@ export class FirestoreService {
     const dreamsRef = collection(db, 'dreams');
     const q = query(
       dreamsRef, 
-      where('userId', '==', userId),
-      orderBy('createdAt', 'desc')
+      where('userId', '==', userId)
     );
     
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      console.log('📡 Firestore snapshot received, docs count:', querySnapshot.docs.length);
+      
       const dreams = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       } as DreamEntry));
+      
+      // Sort by timestamp (fallback to createdAt)
+      dreams.sort((a, b) => {
+        const aTime = a.timestamp || new Date(a.createdAt || 0).getTime();
+        const bTime = b.timestamp || new Date(b.createdAt || 0).getTime();
+        return bTime - aTime; // Newest first
+      });
+      
+      console.log('📋 Processed dreams:', dreams.map(d => `${d.name} (${d.id})`));
       callback(dreams);
     }, (error) => {
-      console.error('Error in dreams subscription:', error);
+      console.error('❌ Error in dreams subscription:', error);
+      console.error('Error details:', error.code, error.message);
     });
 
     this.unsubscribes.push(unsubscribe);

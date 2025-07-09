@@ -123,6 +123,10 @@ function App() {
   const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'favorites', 'recents'
   const [sortOrder, setSortOrder] = useState('newest'); // 'manual', 'newest', 'oldest'
   const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null);
+  
+  // Debug panel state
+  const [showDebugPanel, setShowDebugPanel] = useState(false);
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
   const [currentVisibleTags, setCurrentVisibleTags] = useState<string[]>([]);
   const [contextMenu, setContextMenu] = useState<{ visible: boolean; x: number; y: number; tag: string | null }>({ visible: false, x: 0, y: 0, tag: null });
   const [showRenameTagDialog, setShowRenameTagDialog] = useState(false);
@@ -132,6 +136,14 @@ function App() {
     // Filter out the star icon and any favorites/star tags
     return Array.from(new Set(dreams.flatMap(dream => dream.tags || []))).filter(tag => tag !== '★' && tag !== 'star' && tag !== 'favorites');
   }, [dreams]);
+
+  // Debug logging function
+  const addDebugLog = useCallback((message: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    const logEntry = `[${timestamp}] ${message}`;
+    console.log(logEntry);
+    setDebugLogs(prev => [...prev.slice(-49), logEntry]); // Keep last 50 logs
+  }, []);
 
   const allTags = useMemo(() => {
     return Array.from(new Set(dreams.flatMap(dream => dream.tags || []))).filter(tag => tag !== '★' && tag !== 'star' && tag !== 'favorites');
@@ -202,14 +214,51 @@ function App() {
     let unsubscribe: (() => void) | null = null;
     
     if (user) {
+      addDebugLog(`🔥 Setting up Firestore subscription for user: ${user.uid}`);
+      addDebugLog(`👤 User info: ${user.displayName} (${user.email})`);
+      
       // Subscribe to real-time updates from Firestore
-      unsubscribe = firestoreService.subscribeToUserDreams(user.uid, (firestoreDreams) => {
+      unsubscribe = firestoreService.subscribeToUserDreams(user.uid, async (firestoreDreams) => {
+        addDebugLog(`📥 Received ${firestoreDreams.length} dreams from Firestore`);
+        
+        // Check if this is the first sign-in and we have localStorage data but no Firebase data
+        if (firestoreDreams.length === 0) {
+          const localDreams = loadFromLocalStorage('dreams_local', []);
+          const cleanedLocalDreams = cleanDreamTags(localDreams);
+          
+          if (cleanedLocalDreams.length > 0) {
+            addDebugLog(`🔄 Migrating ${cleanedLocalDreams.length} dreams from localStorage to Firebase`);
+            
+            try {
+              // Upload all local dreams to Firebase
+              for (const dream of cleanedLocalDreams) {
+                const dreamData = { ...dream, timestamp: dream.timestamp || Date.now() };
+                await firestoreService.saveDream(dreamData, user.uid);
+              }
+              addDebugLog(`✅ Successfully migrated ${cleanedLocalDreams.length} dreams to Firebase`);
+              
+              // Clear localStorage after successful migration
+              localStorage.removeItem('dreams_local');
+              addDebugLog(`🗑️ Cleared localStorage after successful migration`);
+            } catch (error) {
+              addDebugLog(`❌ Error migrating dreams: ${error}`);
+            }
+          } else {
+            addDebugLog(`📋 No local dreams to migrate`);
+          }
+        }
+        
+        if (firestoreDreams.length > 0) {
+          addDebugLog(`📋 First dream: ${firestoreDreams[0].name}`);
+        }
         setDreams(firestoreDreams);
       });
     } else {
+      addDebugLog('❌ No user, loading from localStorage');
       // If no user, load from localStorage
       const loadedDreams = loadFromLocalStorage('dreams_local', []);
       const cleanedDreams = cleanDreamTags(loadedDreams);
+      addDebugLog(`💾 Loaded ${cleanedDreams.length} dreams from localStorage`);
       setDreams(cleanedDreams);
     }
     
@@ -218,7 +267,7 @@ function App() {
         unsubscribe();
       }
     };
-  }, [user]);
+  }, [user, addDebugLog]);
 
   useEffect(() => {
     // Only save to localStorage for unauthenticated users
@@ -256,17 +305,24 @@ function App() {
       try {
         if (newDream.id && dreams.some(d => d.id === newDream.id)) {
           // Update existing dream
+          addDebugLog(`✏️ Updating dream: ${newDream.name}`);
           await firestoreService.updateDream(newDream.id, newDream);
+          addDebugLog(`✅ Dream updated successfully`);
         } else {
           // Add new dream
+          addDebugLog(`➕ Adding new dream: ${newDream.name}`);
           const dreamData = { ...newDream, timestamp: Date.now() };
-          await firestoreService.saveDream(dreamData, user.uid);
+          const dreamId = await firestoreService.saveDream(dreamData, user.uid);
+          addDebugLog(`✅ Dream saved with ID: ${dreamId}`);
         }
       } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        addDebugLog(`❌ Error saving dream: ${errorMsg}`);
         console.error('Error saving dream to Firebase:', error);
       }
     } else {
       // Use localStorage for unauthenticated users
+      addDebugLog(`💾 Saving dream to localStorage: ${newDream.name}`);
       setDreams((prevDreams) => {
         if (newDream.id && prevDreams.some(d => d.id === newDream.id)) {
           // Update existing dream
@@ -489,31 +545,110 @@ function App() {
             </p>
           </div>
 
-          {/* Right side with settings icon and user avatar */}
+          {/* Right side with debug icon, settings icon and user avatar */}
           <div className="flex items-center gap-2 w-16 sm:w-20 sm:min-w-[unset] justify-end flex-shrink-0">
-            {/* User Avatar / Sign In Button */}
+            {/* Debug Panel Button */}
             <button
-              onClick={user ? signOutUser : signInWithGoogle}
-              className="p-2 rounded-lg text-xs transition-colors font-medium flex items-center gap-1.5 border bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 whitespace-nowrap"
+              onClick={() => setShowDebugPanel(!showDebugPanel)}
+              className="p-2 rounded-lg text-xs transition-colors hover:bg-muted"
+              title="Debug Panel"
             >
-              {user && user.photoURL && (
-                <img src={user.photoURL} alt="User Avatar" className="w-5 h-5 rounded-full" />
-              )}
-              {user && user.displayName && (
-                <span className="hidden sm:inline">{user.displayName.split(' ')[0]}</span>
-              )}
-              <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
-                <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                <path d="M12 4.5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm-3 6c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm6 0c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm-3 6c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5z"/>
               </svg>
-              <span className="hidden sm:inline">{user ? 'Sign Out' : 'Sign In'}</span>
-              <span className="sm:hidden">{user ? 'Out' : 'Sync'}</span>
             </button>
+            
+            {/* User Avatar / Sign In Button */}
+            {user ? (
+              <div className="flex flex-col items-center gap-1">
+                <div className="flex items-center gap-1.5">
+                  {user.photoURL && (
+                    <img src={user.photoURL} alt="User Avatar" className="w-6 h-6 rounded-full border border-primary/20" />
+                  )}
+                  <span className="text-xs font-medium text-primary">{user.displayName?.split(' ')[0] || 'User'}</span>
+                </div>
+                <button
+                  onClick={signOutUser}
+                  className="px-2 py-1 rounded text-xs transition-colors font-medium border bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
+                >
+                  Sign Out
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={signInWithGoogle}
+                className="p-2 rounded-lg text-xs transition-colors font-medium flex items-center gap-1.5 border bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 whitespace-nowrap"
+              >
+                <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
+                  <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                  <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                  <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                  <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                </svg>
+                <span>Sign In</span>
+              </button>
+            )}
           </div>
         </div>
       </header>
+
+      {/* Debug Panel */}
+      {showDebugPanel && (
+        <div className="bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800">
+          <div className="max-w-3xl mx-auto px-4 py-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-red-800 dark:text-red-200">🕷️ Debug Panel</h3>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setDebugLogs([])}
+                  className="px-2 py-1 text-xs bg-red-100 dark:bg-red-800 text-red-800 dark:text-red-200 rounded hover:bg-red-200 dark:hover:bg-red-700"
+                >
+                  Clear
+                </button>
+                <button
+                  onClick={() => setShowDebugPanel(false)}
+                  className="px-2 py-1 text-xs bg-red-100 dark:bg-red-800 text-red-800 dark:text-red-200 rounded hover:bg-red-200 dark:hover:bg-red-700"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+            
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-red-200 dark:border-red-700 p-3 max-h-64 overflow-y-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                <div className="text-xs">
+                  <strong>User Status:</strong> {user ? `✅ ${user.displayName}` : '❌ Not signed in'}
+                </div>
+                <div className="text-xs">
+                  <strong>Dreams Count:</strong> {dreams.length}
+                </div>
+                <div className="text-xs">
+                  <strong>Data Source:</strong> {user ? '🔥 Firebase' : '💾 localStorage'}
+                </div>
+                <div className="text-xs">
+                  <strong>User ID:</strong> {user?.uid || 'None'}
+                </div>
+              </div>
+              
+              <div className="border-t pt-3">
+                <strong className="text-xs">Debug Logs:</strong>
+                <div className="mt-2 space-y-1 font-mono text-xs">
+                  {debugLogs.length === 0 ? (
+                    <div className="text-gray-500 italic">No logs yet...</div>
+                  ) : (
+                    debugLogs.slice(-20).map((log, index) => (
+                      <div key={index} className="text-gray-700 dark:text-gray-300">
+                        {log}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <main className="max-w-3xl mx-auto px-4 py-6">
         {/* Control Panel */}
