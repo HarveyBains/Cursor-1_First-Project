@@ -412,13 +412,38 @@ function App() {
   const handleDeleteDream = async () => {
     if (dreamToDeleteId) {
       addDebugLog(`🗑️ Starting delete for dream ID: ${dreamToDeleteId}`);
+      addDebugLog(`🔍 Dream ID type: ${typeof dreamToDeleteId}`);
+      addDebugLog(`🔍 Dream ID length: ${dreamToDeleteId.length}`);
       
       if (user) {
         // Use Firebase for authenticated users
         try {
           addDebugLog(`🔥 Deleting from Firebase: ${dreamToDeleteId}`);
+          
+          // Log the dream details before deletion
+          const dreamToDelete = dreams.find(d => d.id === dreamToDeleteId);
+          if (dreamToDelete) {
+            addDebugLog(`📋 Dream details: ${JSON.stringify(dreamToDelete)}`);
+          } else {
+            addDebugLog(`❌ Dream not found in local state with ID: ${dreamToDeleteId}`);
+          }
+          
           await firestoreService.deleteDream(dreamToDeleteId);
           addDebugLog(`✅ Dream deleted successfully from Firebase`);
+          
+          // Verify the deletion actually worked
+          setTimeout(async () => {
+            try {
+              const wasDeleted = await firestoreService.verifyDreamDeleted(dreamToDeleteId);
+              if (wasDeleted) {
+                addDebugLog(`✅ Verification: Dream was actually deleted from Firebase`);
+              } else {
+                addDebugLog(`❌ Verification: Dream still exists in Firebase!`);
+              }
+            } catch (error) {
+              addDebugLog(`❌ Verification failed: ${error}`);
+            }
+          }, 1000); // Wait 1 second for Firebase to update
           
           // Immediately update local state to reflect the deletion
           setDreams(prevDreams => {
@@ -578,6 +603,61 @@ function App() {
     }
   };
 
+  const handleDiagnoseDreams = async () => {
+    if (!user) {
+      addDebugLog('❌ No user logged in - cannot diagnose dreams');
+      return;
+    }
+
+    addDebugLog('🔍 Starting dream ID diagnosis...');
+    addDebugLog(`👤 User ID: ${user.uid}`);
+    
+    try {
+      await firestoreService.diagnoseDreamIds(user.uid);
+      addDebugLog('✅ Diagnosis completed - check browser console for details');
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      addDebugLog(`❌ Diagnosis failed: ${errorMsg}`);
+    }
+  };
+
+  const handleTestDelete = async () => {
+    if (!user || dreams.length === 0) {
+      addDebugLog('❌ No user or no dreams to test with');
+      return;
+    }
+
+    const testDream = dreams[0];
+    addDebugLog(`🧪 Testing delete with dream: ${testDream.name} (ID: ${testDream.id})`);
+    
+    try {
+      await firestoreService.deleteDream(testDream.id);
+      addDebugLog('✅ Test delete completed');
+      
+      // Verify the deletion
+      setTimeout(async () => {
+        const wasDeleted = await firestoreService.verifyDreamDeleted(testDream.id);
+        addDebugLog(`🔍 Verification result: ${wasDeleted ? 'DELETED' : 'STILL EXISTS'}`);
+      }, 2000);
+      
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      addDebugLog(`❌ Test delete failed: ${errorMsg}`);
+    }
+  };
+
+  const handleTestFirebase = async () => {
+    addDebugLog('🧪 Testing Firebase connection and permissions...');
+    
+    try {
+      await firestoreService.testFirebaseConnection();
+      addDebugLog('✅ Firebase test completed - check browser console for details');
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      addDebugLog(`❌ Firebase test failed: ${errorMsg}`);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="bg-card border-b border-border px-4 py-3 sticky top-0 z-40">
@@ -677,65 +757,91 @@ function App() {
 
       {/* Debug Panel */}
       {showDebugPanel && (
-        <div className="bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800">
+        <div className="bg-muted/50 border-b border-border">
           <div className="max-w-3xl mx-auto px-4 py-4">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-red-800 dark:text-red-200">🕷️ Debug Panel</h3>
+              <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                  <path d="M12 4.5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm-3 6c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm6 0c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm-3 6c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5z"/>
+                </svg>
+                Debug Panel
+              </h3>
               <div className="flex items-center gap-2">
                 {user && (
-                  <button
-                    onClick={handleRepairDreams}
-                    className="px-2 py-1 text-xs bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-200 rounded hover:bg-blue-200 dark:hover:bg-blue-700"
-                  >
-                    Repair
-                  </button>
+                  <>
+                    <button
+                      onClick={handleRepairDreams}
+                      className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
+                    >
+                      Repair
+                    </button>
+                    <button
+                      onClick={handleDiagnoseDreams}
+                      className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
+                    >
+                      Diagnose
+                    </button>
+                    <button
+                      onClick={handleTestDelete}
+                      className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
+                    >
+                      Test Delete
+                    </button>
+                    <button
+                      onClick={handleTestFirebase}
+                      className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
+                    >
+                      Test Firebase
+                    </button>
+                  </>
                 )}
                 <button
                   onClick={copyDebugToClipboard}
-                  className="px-2 py-1 text-xs bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200 rounded hover:bg-green-200 dark:hover:bg-green-700"
+                  className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
                   title="Copy debug info to clipboard"
                 >
                   📋 Copy
                 </button>
                 <button
                   onClick={() => setDebugLogs([])}
-                  className="px-2 py-1 text-xs bg-red-100 dark:bg-red-800 text-red-800 dark:text-red-200 rounded hover:bg-red-200 dark:hover:bg-red-700"
+                  className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
                 >
                   Clear
                 </button>
                 <button
                   onClick={() => setShowDebugPanel(false)}
-                  className="px-2 py-1 text-xs bg-red-100 dark:bg-red-800 text-red-800 dark:text-red-200 rounded hover:bg-red-200 dark:hover:bg-red-700"
+                  className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
                 >
                   Close
                 </button>
               </div>
             </div>
             
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-red-200 dark:border-red-700 p-3 max-h-64 overflow-y-auto">
+            <div className="bg-card rounded-lg border border-border p-3 max-h-64 overflow-y-auto">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
-                <div className="text-xs">
-                  <strong>User Status:</strong> {user ? `✅ ${user.displayName}` : '❌ Not signed in'}
+                <div className="text-xs text-muted-foreground">
+                  <strong className="text-foreground">User Status:</strong> {user ? `✅ ${user.displayName}` : '❌ Not signed in'}
                 </div>
-                <div className="text-xs">
-                  <strong>Dreams Count:</strong> {dreams.length}
+                <div className="text-xs text-muted-foreground">
+                  <strong className="text-foreground">Dreams Count:</strong> {dreams.length}
                 </div>
-                <div className="text-xs">
-                  <strong>Data Source:</strong> {user ? '🔥 Firebase' : '💾 localStorage'}
+                <div className="text-xs text-muted-foreground">
+                  <strong className="text-foreground">Data Source:</strong> {user ? '🔥 Firebase' : '💾 localStorage'}
                 </div>
-                <div className="text-xs">
-                  <strong>User ID:</strong> {user?.uid || 'None'}
+                <div className="text-xs text-muted-foreground">
+                  <strong className="text-foreground">User ID:</strong> {user?.uid || 'None'}
                 </div>
               </div>
               
-              <div className="border-t pt-3">
-                <strong className="text-xs">Debug Logs:</strong>
+              <div className="border-t border-border pt-3">
+                <strong className="text-xs text-foreground">Debug Logs:</strong>
                 <div className="mt-2 space-y-1 font-mono text-xs">
                   {debugLogs.length === 0 ? (
-                    <div className="text-gray-500 italic">No logs yet...</div>
+                    <div className="text-muted-foreground italic">No logs yet...</div>
                   ) : (
-                    debugLogs.slice(-20).map((log, index) => (
-                      <div key={index} className="text-gray-700 dark:text-gray-300">
+                    debugLogs.slice(-20).reverse().map((log, index) => (
+                      <div key={index} className="text-muted-foreground">
                         {log}
                       </div>
                     ))
@@ -788,14 +894,14 @@ function App() {
                 {/* Debug Panel Button */}
                 <button
                   onClick={() => setShowDebugPanel(!showDebugPanel)}
-                  className="px-3 py-2 rounded-lg text-xs transition-colors font-medium flex items-center gap-1.5 border bg-red-100 dark:bg-red-800 text-red-800 dark:text-red-200 border-red-200 dark:border-red-700 hover:bg-red-200 dark:hover:bg-red-700"
+                  className="px-3 py-2 rounded-lg text-xs transition-colors font-medium flex items-center gap-1.5 border bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
                   title="Debug Panel"
                 >
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
                     <path d="M12 4.5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm-3 6c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm6 0c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm-3 6c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5z"/>
                   </svg>
-                  <span className="hidden sm:inline">🕷️</span>
+                  <span className="hidden sm:inline">Debug</span>
                 </button>
               </div>
               {/* Add Notion Button */}

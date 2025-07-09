@@ -8,7 +8,8 @@ import {
   query, 
   where, 
   onSnapshot,
-  type Unsubscribe 
+  type Unsubscribe,
+  getDoc
 } from 'firebase/firestore';
 import { db } from './firebase-config';
 import { type DreamEntry } from '../types/DreamEntry';
@@ -102,10 +103,77 @@ export class FirestoreService {
   async deleteDream(dreamId: string): Promise<void> {
     try {
       console.log('🗑️ Attempting to delete dream with ID:', dreamId);
+      console.log('🔍 Dream ID type:', typeof dreamId);
+      console.log('🔍 Dream ID length:', dreamId.length);
       
-      const dreamRef = doc(db, 'dreams', dreamId);
-      await deleteDoc(dreamRef);
-      console.log('✅ Dream deleted successfully');
+      // Strategy 1: Try to delete using the ID as a Firebase document ID
+      try {
+        console.log('🔍 Strategy 1: Trying to delete using Firebase document ID...');
+        const dreamRef = doc(db, 'dreams', dreamId);
+        console.log('🔍 Created document reference:', dreamRef.path);
+        
+        // Check if document exists before trying to delete
+        const docSnapshot = await getDoc(dreamRef);
+        if (docSnapshot.exists()) {
+          console.log('✅ Document exists, attempting to delete...');
+          await deleteDoc(dreamRef);
+          console.log('✅ Dream deleted successfully using Firebase document ID');
+          return;
+        } else {
+          console.log('❌ Document does not exist with Firebase document ID:', dreamId);
+          throw new Error('Document not found');
+        }
+      } catch (firstError) {
+        console.log('❓ Failed to delete using Firebase document ID, trying client ID search...');
+        console.log('First error:', firstError);
+        console.log('Error type:', typeof firstError);
+        console.log('Error message:', firstError instanceof Error ? firstError.message : firstError);
+      }
+      
+      // Strategy 2: Search for documents where the 'id' field matches our dreamId
+      try {
+        console.log('🔍 Strategy 2: Searching for documents with client ID...');
+        const dreamsRef = collection(db, 'dreams');
+        const q = query(dreamsRef, where('id', '==', dreamId));
+        const querySnapshot = await getDocs(q);
+        
+        console.log(`🔍 Found ${querySnapshot.docs.length} documents with client ID: ${dreamId}`);
+        
+        if (querySnapshot.empty) {
+          // Strategy 3: Search for documents where the document ID matches our dreamId
+          console.log('🔍 Strategy 3: No documents found with client ID, trying document ID search...');
+          const docRef = doc(db, 'dreams', dreamId);
+          const docSnapshot = await getDoc(docRef);
+          
+          if (docSnapshot.exists()) {
+            console.log('✅ Found document with matching document ID, deleting...');
+            await deleteDoc(docRef);
+            console.log('✅ Dream deleted successfully using document ID search');
+            return;
+          } else {
+            throw new Error(`No dream found with ID: ${dreamId} (tried both client ID and document ID)`);
+          }
+        }
+        
+        // Log what we're about to delete
+        querySnapshot.docs.forEach(doc => {
+          console.log(`🗑️ About to delete document with Firebase ID: ${doc.id}, client ID: ${doc.data().id}, name: ${doc.data().name}`);
+        });
+        
+        // Delete all matching documents (should be only one)
+        const deletePromises = querySnapshot.docs.map(doc => {
+          console.log(`🗑️ Deleting document: ${doc.id}`);
+          return deleteDoc(doc.ref);
+        });
+        
+        await Promise.all(deletePromises);
+        console.log(`✅ Dream deleted successfully using client ID search (${querySnapshot.docs.length} documents)`);
+        
+      } catch (secondError) {
+        console.log('❌ Second error:', secondError);
+        throw secondError;
+      }
+      
     } catch (error) {
       console.error('❌ Error deleting dream:', error);
       if (error instanceof Error) {
@@ -226,6 +294,100 @@ export class FirestoreService {
     } catch (error) {
       console.error('❌ Error getting all dreams:', error);
       throw error;
+    }
+  }
+
+  async diagnoseDreamIds(userId: string): Promise<void> {
+    try {
+      console.log('🔍 Diagnosing dream ID structure...');
+      const dreamsRef = collection(db, 'dreams');
+      const q = query(dreamsRef, where('userId', '==', userId));
+      const querySnapshot = await getDocs(q);
+      
+      console.log(`📋 Found ${querySnapshot.docs.length} dreams for user ${userId}`);
+      
+      querySnapshot.docs.forEach((doc, index) => {
+        const data = doc.data();
+        console.log(`Dream ${index + 1}:`);
+        console.log(`  Firebase Document ID: ${doc.id}`);
+        console.log(`  Client ID (id field): ${data.id || 'MISSING'}`);
+        console.log(`  Name: ${data.name || 'unnamed'}`);
+        console.log(`  User ID: ${data.userId || 'MISSING'}`);
+        console.log(`  Timestamp: ${data.timestamp || 'MISSING'}`);
+        console.log('  ---');
+      });
+      
+    } catch (error) {
+      console.error('❌ Error diagnosing dream IDs:', error);
+      throw error;
+    }
+  }
+
+  async verifyDreamDeleted(dreamId: string): Promise<boolean> {
+    try {
+      console.log(`🔍 Verifying if dream ${dreamId} was actually deleted...`);
+      
+      // Check if document exists with this ID as Firebase document ID
+      const docRef = doc(db, 'dreams', dreamId);
+      const docSnapshot = await getDoc(docRef);
+      
+      if (docSnapshot.exists()) {
+        console.log(`❌ Dream still exists with Firebase document ID: ${dreamId}`);
+        return false;
+      }
+      
+      // Check if document exists with this ID as client ID
+      const dreamsRef = collection(db, 'dreams');
+      const q = query(dreamsRef, where('id', '==', dreamId));
+      const querySnapshot = await getDocs(q);
+      
+      if (!querySnapshot.empty) {
+        console.log(`❌ Dream still exists with client ID: ${dreamId}`);
+        querySnapshot.docs.forEach(doc => {
+          console.log(`  Found document: ${doc.id} with data:`, doc.data());
+        });
+        return false;
+      }
+      
+      console.log(`✅ Dream ${dreamId} was successfully deleted`);
+      return true;
+    } catch (error) {
+      console.error('❌ Error verifying dream deletion:', error);
+      return false;
+    }
+  }
+
+  async testFirebaseConnection(): Promise<void> {
+    try {
+      console.log('🧪 Testing Firebase connection and permissions...');
+      
+      // Test 1: Try to read dreams
+      const dreamsRef = collection(db, 'dreams');
+      const testQuery = query(dreamsRef, where('userId', '==', 'test'));
+      const querySnapshot = await getDocs(testQuery);
+      console.log('✅ Read operation works');
+      
+      // Test 2: Try to create a test document
+      const testDoc = {
+        test: true,
+        timestamp: Date.now(),
+        userId: 'test'
+      };
+      
+      try {
+        const docRef = await addDoc(collection(db, 'dreams'), testDoc);
+        console.log('✅ Create operation works');
+        
+        // Test 3: Try to delete the test document
+        await deleteDoc(docRef);
+        console.log('✅ Delete operation works');
+        
+      } catch (error) {
+        console.log('❌ Create/Delete operations failed:', error);
+      }
+      
+    } catch (error) {
+      console.error('❌ Firebase connection test failed:', error);
     }
   }
 
