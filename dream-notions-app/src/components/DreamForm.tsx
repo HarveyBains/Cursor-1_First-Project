@@ -65,7 +65,10 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
         setIconColor(dreamToEdit.iconColor || '');
         // Set dreamDate from existing timestamp
         const date = new Date(dreamToEdit.timestamp);
-        setDreamDate(date.toISOString().split('T')[0]);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        setDreamDate(`${year}-${month}-${day}`);
       } else {
         // Reset form for new dream
         const today = new Date();
@@ -74,7 +77,11 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
         setIsFavorite(false);
         setTags('');
         setIconColor('');
-        setDreamDate(today.toISOString().split('T')[0]); // Default to current date
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        setDreamDate(`${year}-${month}-${day}`); // Default to current date
       }
       setNameSuggestions([]); // Clear suggestions when form opens
       setTagSuggestions([]);
