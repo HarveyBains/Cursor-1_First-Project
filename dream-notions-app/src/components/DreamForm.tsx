@@ -163,6 +163,15 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
           <div className="mb-4">
             <label className="block text-sm font-medium text-muted-foreground mb-1">Icon Color</label>
             <div className="flex gap-2">
+              <div
+                className={`w-8 h-8 rounded-full cursor-pointer border-2 ${iconColor === '' ? 'border-primary' : 'border-transparent'} flex items-center justify-center text-muted-foreground`}
+                onClick={() => setIconColor('')}
+                title="No Color"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </div>
               {ICON_COLORS.map((color) => (
                 <div
                   key={color}

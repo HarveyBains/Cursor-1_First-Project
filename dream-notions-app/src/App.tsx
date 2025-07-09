@@ -1,10 +1,11 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import DreamItem from './components/DreamItem';
 import ImportDialog from './components/ImportDialog';
 import DreamForm from './components/DreamForm';
 import DeleteConfirmDialog from './components/DeleteConfirmDialog';
 import RenameTagDialog from './components/RenameTagDialog';
 import TagBreadcrumbs from './components/TagBreadcrumbs';
+import NotepadDialog from './components/NotepadDialog';
 import { DragDropProvider } from './components/DragDropProvider';
 import { saveToLocalStorage, loadFromLocalStorage } from './utils/localStorageUtils';
 import { exportDreams } from './utils/importExportUtils';
@@ -24,6 +25,8 @@ function App() {
   const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
   const [dreamToDeleteId, setDreamToDeleteId] = useState<string | null>(null);
   const [showDeleteAllConfirmDialog, setShowDeleteAllConfirmDialog] = useState(false);
+  const [showNotepadDialog, setShowNotepadDialog] = useState(false);
+  const [notepadContent, setNotepadContent] = useState(() => loadFromLocalStorage('notepad_content', ''));
   const [isDarkMode, setIsDarkMode] = useState(() => {
     // Initialize from localStorage or default to true (dark mode)
     const savedTheme = localStorage.getItem('theme');
@@ -38,11 +41,12 @@ function App() {
   const [tagToRename, setTagToRename] = useState<string | null>(null);
 
   const allUniqueTags = useMemo(() => {
-    return Array.from(new Set(dreams.flatMap(dream => dream.tags || [])));
+    // Filter out the star icon and any favorites/star tags
+    return Array.from(new Set(dreams.flatMap(dream => dream.tags || []))).filter(tag => tag !== '★' && tag !== 'star' && tag !== 'favorites');
   }, [dreams]);
 
   const allTags = useMemo(() => {
-    return Array.from(new Set(dreams.flatMap(dream => dream.tags || [])));
+    return Array.from(new Set(dreams.flatMap(dream => dream.tags || []))).filter(tag => tag !== '★' && tag !== 'star' && tag !== 'favorites');
   }, [dreams]);
 
   const taskTitles = useMemo(() => {
@@ -69,7 +73,10 @@ function App() {
   const getTopLevelTags = (tags: string[]): string[] => {
     const topLevels = new Set<string>();
     tags.forEach(tag => {
-      topLevels.add(tag.split('/')[0]);
+      const top = tag.split('/')[0];
+      if (top !== '★' && top !== 'star' && top !== 'favorites') {
+        topLevels.add(top);
+      }
     });
     return Array.from(topLevels).sort();
   };
@@ -81,7 +88,10 @@ function App() {
       if (tag.startsWith(`${parentTag}/`)) {
         const parts = tag.split('/');
         if (parts.length > parentTag.split('/').length) {
-          children.add(parts.slice(0, parentTag.split('/').length + 1).join('/'));
+          const child = parts.slice(0, parentTag.split('/').length + 1).join('/');
+          if (child !== '★' && child !== 'star' && child !== 'favorites') {
+            children.add(child);
+          }
         }
       }
     });
@@ -163,6 +173,12 @@ function App() {
     exportDreams(dreamsToExport);
   };
 
+  const handleSaveNotepad = (content: string) => {
+    setNotepadContent(content);
+    saveToLocalStorage('notepad_content', content);
+    setShowNotepadDialog(false);
+  };
+
   const toggleTheme = () => {
     setIsDarkMode((prevMode: boolean) => !prevMode);
   };
@@ -224,6 +240,8 @@ function App() {
       currentDreams.sort((a, b) => b.timestamp - a.timestamp);
     } else if (sortOrder === 'oldest') {
       currentDreams.sort((a, b) => a.timestamp - b.timestamp);
+    } else if (sortOrder === 'manual') {
+      currentDreams.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
     }
     return currentDreams;
   }, [dreams, activeFilter, sortOrder, activeTagFilter]);
@@ -260,10 +278,10 @@ function App() {
           </div>
 
           {/* Right side with settings icon and user avatar */}
-          <div className="flex items-center gap-2 w-16 sm:w-20 sm:min-w-[120px] justify-end flex-shrink-0">
+          <div className="flex items-center gap-2 w-16 sm:w-20 sm:min-w-[unset] justify-end flex-shrink-0">
             {/* List Planner notepad icon */}
             <button
-              onClick={() => alert('List Planner functionality coming soon!')}
+              onClick={() => setShowNotepadDialog(true)}
               className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
               title="List Planner"
             >
@@ -275,7 +293,7 @@ function App() {
             {/* User Avatar / Sign In Button */}
             <button
               onClick={user ? signOutUser : signInWithGoogle}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded transition-colors text-xs whitespace-nowrap"
+              className="p-2 rounded-lg text-xs transition-colors font-medium flex items-center gap-1.5 border bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 whitespace-nowrap"
             >
               {user && user.photoURL && (
                 <img src={user.photoURL} alt="User Avatar" className="w-5 h-5 rounded-full" />
@@ -336,7 +354,7 @@ function App() {
               {/* Add Notion Button */}
               <button
                 onClick={() => { setSelectedDream(null); setShowAddDreamForm(true); }}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-lg text-sm transition-colors font-medium whitespace-nowrap"
+                className="px-3 py-2 rounded-lg text-xs transition-colors font-medium flex items-center gap-1.5 border bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
               >
                 Add Notion
               </button>
@@ -362,7 +380,6 @@ function App() {
                 className={`px-3 py-1 text-xs rounded-full transition-colors flex items-center gap-1.5 ${activeFilter === 'favorites' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
               >
                 <span>Favorites</span>
-                <span className="px-1.5 py-0.5 text-xs rounded-full font-medium bg-primary/20 text-primary">{dreams.filter(d => d.isFavorite).length}</span>
               </button>
               {/* Sort Toggle Button */}
               <button
@@ -393,33 +410,35 @@ function App() {
                 ← Back
               </button>
             )}
-            {currentVisibleTags.map(tag => (
-              <button
-                key={tag}
-                onClick={() => {
-                  if (activeTagFilter === tag) {
-                    setActiveTagFilter(null);
-                    setCurrentVisibleTags(getTopLevelTags(allUniqueTags));
-                  } else {
-                    setActiveTagFilter(tag);
-                    const children = getChildTags(allUniqueTags, tag);
-                    if (children.length > 0) {
-                      setCurrentVisibleTags(children);
+            {currentVisibleTags
+              .filter(tag => tag !== '★' && tag !== 'star' && tag !== 'favorites')
+              .map(tag => (
+                <button
+                  key={tag}
+                  onClick={() => {
+                    if (activeTagFilter === tag) {
+                      setActiveTagFilter(null);
+                      setCurrentVisibleTags(getTopLevelTags(allUniqueTags));
                     } else {
-                      // If no children, stay on current level but filter
-                      // The filter will apply based on activeTagFilter
+                      setActiveTagFilter(tag);
+                      const children = getChildTags(allUniqueTags, tag);
+                      if (children.length > 0) {
+                        setCurrentVisibleTags(children);
+                      } else {
+                        // If no children, stay on current level but filter
+                        // The filter will apply based on activeTagFilter
+                      }
                     }
-                  }
-                }}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  setContextMenu({ visible: true, x: e.clientX, y: e.clientY, tag });
-                }}
-                className={`px-3 py-1 text-xs rounded-full transition-colors ${activeTagFilter === tag ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
-              >
-                {tag.split('/').pop()}
-              </button>
-            ))}
+                  }}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    setContextMenu({ visible: true, x: e.clientX, y: e.clientY, tag });
+                  }}
+                  className={`px-3 py-1 text-xs rounded-full transition-colors ${activeTagFilter === tag ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
+                >
+                  {tag.split('/').pop()}
+                </button>
+              ))}
           </div>
         </div>
 
@@ -429,17 +448,25 @@ function App() {
         {/* Dream List */}
         <DragDropProvider>
           <div>
-            {filteredDreams.map((dream, index) => (
-              <DreamItem
-              key={dream.id}
-              dream={dream}
-              index={index}
-              onToggleFavorite={handleToggleFavorite}
-              onMove={moveDream}
-              onEdit={(dreamToEdit) => { setSelectedDream(dreamToEdit); setShowAddDreamForm(true); }}
-              onDelete={confirmDeleteDream}
-            />
-            ))}
+            {filteredDreams.map((dream, index) => {
+              const dreamDate = new Date(dream.timestamp).toDateString();
+              const prevDreamDate = index > 0 ? new Date(filteredDreams[index - 1].timestamp).toDateString() : '';
+              const showDivider = index > 0 && dreamDate !== prevDreamDate;
+
+              return (
+                <React.Fragment key={dream.id}>
+                  {showDivider && <hr className="my-4 border-t border-border" />}
+                  <DreamItem
+                    dream={dream}
+                    index={index}
+                    onToggleFavorite={handleToggleFavorite}
+                    onMove={moveDream}
+                    onEdit={(dreamToEdit) => { setSelectedDream(dreamToEdit); setShowAddDreamForm(true); }}
+                    onDelete={confirmDeleteDream}
+                  />
+                </React.Fragment>
+              );
+            })}
           </div>
         </DragDropProvider>
       </main>
@@ -483,6 +510,14 @@ function App() {
         onClose={() => { setShowRenameTagDialog(false); setTagToRename(null); }}
         onRename={handleRenameTag}
         tagToRename={tagToRename}
+      />
+
+      {/* Notepad Dialog */}
+      <NotepadDialog
+        isOpen={showNotepadDialog}
+        onClose={() => setShowNotepadDialog(false)}
+        onSave={handleSaveNotepad}
+        initialContent={notepadContent}
       />
 
       {/* Custom Context Menu */}
