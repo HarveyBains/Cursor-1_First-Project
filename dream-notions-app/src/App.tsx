@@ -876,6 +876,15 @@ function App() {
     }
   };
 
+  // Get count of dreams for a specific tag (including hierarchical children)
+  const getTagCount = (tag: string) => {
+    return dreams.filter(dream => 
+      dream.tags?.some(dreamTag => 
+        dreamTag === tag || dreamTag.startsWith(tag + '/')
+      )
+    ).length;
+  };
+
   const moveDream = useCallback((dragIndex: number, hoverIndex: number) => {
     setDreams((prevDreams) => {
       const newDreams = [...prevDreams];
@@ -1683,12 +1692,17 @@ function App() {
                   title="Debug Panel"
                 >
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 9c-1.7 0-3 1.3-3 3s1.3 3 3 3 3-1.3 3-3-1.3-3-3-3zm7-7l-2 2c1.5 1.5 1.5 4 0 5.5l2 2c2.8-2.8 2.8-7.2 0-10L19 2zm-14 0c-2.8 2.8-2.8 7.2 0 10l2-2c-1.5-1.5-1.5-4 0-5.5L5 2zm14 14l-2-2c-1.5 1.5-4 1.5-5.5 0l-2 2c2.8 2.8 7.2 2.8 10 0z"/>
-                    <circle cx="6" cy="6" r="1"/>
-                    <circle cx="18" cy="6" r="1"/>
-                    <circle cx="6" cy="18" r="1"/>
-                    <circle cx="18" cy="18" r="1"/>
-                    <path d="M9 3l1.5 1.5L12 3l1.5 1.5L15 3M9 21l1.5-1.5L12 21l1.5-1.5L15 21M3 9l1.5 1.5L3 12l1.5 1.5L3 15M21 9l-1.5 1.5L21 12l-1.5 1.5L21 15"/>
+                    {/* Bug body */}
+                    <ellipse cx="12" cy="12" rx="3" ry="6"/>
+                    {/* Bug head */}
+                    <circle cx="12" cy="6" r="2"/>
+                    {/* Antennae */}
+                    <path d="M10 4l-1-2M14 4l1-2"/>
+                    {/* Wings */}
+                    <ellipse cx="9" cy="10" rx="2" ry="3" transform="rotate(-20 9 10)" opacity="0.7"/>
+                    <ellipse cx="15" cy="10" rx="2" ry="3" transform="rotate(20 15 10)" opacity="0.7"/>
+                    {/* Legs */}
+                    <path d="M9 9l-3-1M15 9l3-1M9 12l-3 0M15 12l3 0M9 15l-3 1M15 15l3 1" stroke="currentColor" strokeWidth="1" fill="none"/>
                   </svg>
                   <span className="hidden sm:inline">Debug</span>
                 </button>
@@ -1780,9 +1794,10 @@ function App() {
                     e.preventDefault();
                     setContextMenu({ visible: true, x: e.clientX, y: e.clientY, tag });
                   }}
-                  className={`px-3 py-1 text-xs rounded-full transition-colors ${activeTagFilter === tag ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
+                  className={`px-3 py-1 text-xs rounded-full transition-colors flex items-center gap-1.5 ${activeTagFilter === tag ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
                 >
-                  {tag.split('/').pop()}
+                  <span>{tag.split('/').pop()}</span>
+                  <span className="px-1.5 py-0.5 text-xs rounded-full font-medium bg-primary/20 text-primary">{getTagCount(tag)}</span>
                 </button>
               ))}
           </div>
