@@ -35,6 +35,61 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
   const [dreamDate, setDreamDate] = useState<string>(''); // YYYY-MM-DD format for input type="date"
   const [newTagInput, setNewTagInput] = useState('');
 
+  // Hierarchical autocomplete function
+  const getHierarchicalSuggestions = (input: string, availableTags: string[]): string[] => {
+    const lowerInput = input.toLowerCase();
+    const suggestions = new Set<string>();
+    
+    // Check if user is building a hierarchical path
+    const parts = input.split('/');
+    const isHierarchical = input.includes('/');
+    const lastPart = parts[parts.length - 1].toLowerCase();
+    
+    if (isHierarchical) {
+      // User is typing a hierarchical tag like "Dreams/O"
+      const currentPath = parts.slice(0, -1).join('/');
+      
+      // Find all tags that start with the current path and have the next level
+      availableTags.forEach(tag => {
+        if (tag.toLowerCase().startsWith(currentPath.toLowerCase() + '/')) {
+          const tagParts = tag.split('/');
+          // We want the next level after currentPath
+          const nextLevelIndex = parts.length - 1;
+          
+          if (tagParts.length > nextLevelIndex) {
+            const nextLevelPart = tagParts[nextLevelIndex];
+            
+            // Check if this next level part starts with the user's input
+            if (nextLevelPart.toLowerCase().startsWith(lastPart)) {
+              // Build suggestion up to this level
+              const suggestion = tagParts.slice(0, nextLevelIndex + 1).join('/');
+              suggestions.add(suggestion);
+            }
+          }
+        }
+      });
+    } else {
+      // User is typing a root-level tag like "DR" or "Dreams"
+      // Find matching root level tags
+      availableTags.forEach(tag => {
+        // Check root level matches
+        const rootPart = tag.split('/')[0];
+        if (rootPart.toLowerCase().startsWith(lowerInput)) {
+          suggestions.add(rootPart);
+        }
+        
+        // Also check full tag matches for standalone tags
+        if (tag.toLowerCase().startsWith(lowerInput)) {
+          suggestions.add(tag);
+        }
+      });
+    }
+    
+    const result = Array.from(suggestions).slice(0, 10).sort();
+    console.log(`Hierarchical suggestions for "${input}":`, result);
+    return result;
+  };
+
   // Compute icon color usage frequency
   const iconColorCounts: Record<string, number> = React.useMemo(() => {
     const counts: Record<string, number> = {};
@@ -230,24 +285,35 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
               )}
             </div>
             
-            {/* Add New Tag Input */}
+            {/* Add New Tag Input with Hierarchical Autocomplete */}
             <input
               type="text"
               className="w-full p-2 border border-border rounded-md bg-background text-foreground text-xs"
               value={newTagInput}
               onChange={(e) => {
-                setNewTagInput(e.target.value);
-                if (e.target.value.length > 0) {
-                  const filtered = allTags.filter(tag => {
-                    return tag.toLowerCase().startsWith(e.target.value.toLowerCase());
-                  });
-                  setTagSuggestions(filtered);
+                const inputValue = e.target.value;
+                setNewTagInput(inputValue);
+                
+                if (inputValue.length > 0) {
+                  // Get hierarchical suggestions based on current input
+                  const suggestions = getHierarchicalSuggestions(inputValue, allTags);
+                  setTagSuggestions(suggestions);
                 } else {
                   setTagSuggestions([]);
                 }
               }}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ',') {
+                if (e.key === 'Tab') {
+                  e.preventDefault();
+                  // Auto-complete with best suggestion
+                  if (tagSuggestions.length > 0) {
+                    const bestMatch = tagSuggestions[0];
+                    setNewTagInput(bestMatch);
+                    // Update suggestions for the completed part
+                    const newSuggestions = getHierarchicalSuggestions(bestMatch, allTags);
+                    setTagSuggestions(newSuggestions);
+                  }
+                } else if (e.key === 'Enter' || e.key === ',') {
                   e.preventDefault();
                   const newTag = newTagInput.trim();
                   if (newTag) {
@@ -261,16 +327,16 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
                   }
                 }
               }}
-              placeholder="Type to add tags (press Enter or comma)"
+              placeholder="Type to add tags (Tab to autocomplete, Enter/comma to add)"
             />
             
-            {/* Tag Suggestions */}
+            {/* Tag Suggestions with Hierarchical Context */}
             {tagSuggestions.length > 0 && (
               <div className="absolute z-10 bg-card border border-border rounded-md shadow-lg mt-1 w-full max-h-48 overflow-y-auto">
                 {tagSuggestions.map((suggestion, index) => (
                   <div
                     key={index}
-                    className="p-2 cursor-pointer hover:bg-muted text-foreground"
+                    className={`p-2 cursor-pointer hover:bg-muted text-foreground flex items-center justify-between ${index === 0 ? 'bg-primary/5' : ''}`}
                     onClick={() => {
                       const currentTags = tags.split(',').map(t => t.trim()).filter(t => t !== '');
                       if (!currentTags.includes(suggestion)) {
@@ -287,11 +353,19 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
                         setTagSuggestions([]);
                       }
                     }}
-                    title="Left-click to add, right-click to delete from all dreams"
+                    title={index === 0 ? "Best match - Press Tab to autocomplete" : "Click to add, right-click to delete from all dreams"}
                   >
-                    {suggestion}
+                    <span>{suggestion}</span>
+                    {index === 0 && (
+                      <span className="text-xs text-muted-foreground ml-2">Tab ↹</span>
+                    )}
                   </div>
                 ))}
+                {tagSuggestions.length === 0 && newTagInput.includes('/') && (
+                  <div className="p-2 text-xs text-muted-foreground">
+                    Continue typing for hierarchical suggestions...
+                  </div>
+                )}
               </div>
             )}
           </div>
