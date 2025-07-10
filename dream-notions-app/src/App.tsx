@@ -71,7 +71,9 @@ const VersionEditor: React.FC<VersionEditorProps> = ({ initialVersion, onSave, o
 function cleanDreamTagsAndColors(dreams: DreamEntry[]) {
   return dreams.map(dream => ({
     ...dream,
-    tags: dream.tags ? dream.tags.filter(tag => tag !== '★' && tag !== 'star' && tag !== 'favorites') : [],
+    tags: dream.tags ? dream.tags
+      .filter(tag => tag !== '★' && tag !== 'star' && tag !== 'favorites')
+      .map(tag => tag.startsWith('#') ? tag.substring(1) : tag) : [],
     iconColor: dream.iconColor || '#6B7280',
   }));
 }
@@ -165,21 +167,12 @@ function App() {
         return;
       }
       
-      // Normalize tag format: 
-      // - Standalone tags should have # prefix
-      // - Hierarchical tags (with /) should not have # prefix
+      // Normalize tag format: Remove # prefix from all tags
+      // All tags should be stored without # prefix
       let normalizedTag = tag;
       
-      if (tag.includes('/')) {
-        // Hierarchical tag - remove # prefix if present
-        if (tag.startsWith('#')) {
-          normalizedTag = tag.substring(1);
-        }
-      } else {
-        // Standalone tag - ensure # prefix
-        if (!tag.startsWith('#')) {
-          normalizedTag = `#${tag}`;
-        }
+      if (tag.startsWith('#')) {
+        normalizedTag = tag.substring(1);
       }
       
       normalizedTags.add(normalizedTag);

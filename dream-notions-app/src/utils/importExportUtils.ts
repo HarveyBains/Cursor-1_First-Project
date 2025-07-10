@@ -61,24 +61,21 @@ export const parseImportMarkdown = (markdownText: string): DreamEntry[] => {
         tags = originalTags.map(tag => {
           const originalTag = tag;
           
-          // Normalize tag formatting to prevent duplicates:
-          // 1. Remove any existing # prefix first
+          // Clean tag formatting:
+          // 1. Remove any existing # prefix
           if (tag.startsWith('#')) {
             tag = tag.substring(1);
           }
           
-          // 2. Add # prefix ONLY to standalone tags (no /)
-          // Hierarchical tags (containing /) should never have # prefix
-          if (!tag.includes('/')) {
-            tag = `#${tag}`;
-          }
+          // 2. Preserve hierarchical structure - no # prefix for any tags
+          // Just return the clean tag name
           
           if (originalTag !== tag) {
-            console.log(`  Normalized: "${originalTag}" → "${tag}"`);
+            console.log(`  Cleaned: "${originalTag}" → "${tag}"`);
           }
           
           return tag;
-        }).filter(tag => tag !== '' && tag !== '#' && tag !== '★' && tag !== 'star' && tag !== 'favorites');
+        }).filter(tag => tag !== '' && tag !== '★' && tag !== 'star' && tag !== 'favorites');
         
         console.log('Final normalized tags:', tags);
       }
@@ -94,7 +91,7 @@ export const parseImportMarkdown = (markdownText: string): DreamEntry[] => {
         timestamp,
         description: description || undefined,
         isFavorite: false,
-        tags: tags.length > 0 ? tags : ['#default'], // Ensure at least #default tag
+        tags: tags.length > 0 ? tags : ['default'], // Ensure at least default tag
         icon: 'neutral',
         displayOrder: dreams.length * 1000
       } as DreamEntry);
@@ -174,7 +171,7 @@ export const exportDreams = async (dreams: DreamEntry[]): Promise<void> => {
     const yearShort = String(date.getFullYear()).slice(-2); // Get last two digits of year
 
     const formattedDateDDMMYY = `${day}/${month}/${yearShort}`;
-    const tags = dream.tags && dream.tags.length > 0 ? dream.tags.join(',') : '#default'; // Ensure #default on export
+    const tags = dream.tags && dream.tags.length > 0 ? dream.tags.join(',') : 'default'; // Ensure default on export
 
     // Format: DD/MM/YY - Dream Title, Tags:Tag1,Tag2,Tag3\nDescription\n---
     return `${formattedDateDDMMYY} - ${dream.name}, Tags:${tags}\n${dream.description || ''}\n---`;
