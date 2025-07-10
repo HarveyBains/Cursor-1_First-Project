@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dream Icon Color Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .dream-item {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .icon-circle {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            flex-shrink: 0;
+        }
+        .dream-content {
+            flex: 1;
+        }
+        .dream-title {
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        .dream-description {
+            color: #666;
+            font-size: 14px;
+        }
+        .debug-info {
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Dream Icon Color Test</h1>
+        <p>This page tests the icon color display functionality from the Dream-Notions app.</p>
+        
+        <div class="dream-item">
+            <div class="icon-circle" style="background-color: #F87171;"></div>
+            <div class="dream-content">
+                <div class="dream-title">Dream with Red Icon</div>
+                <div class="dream-description">This dream should have a red icon</div>
+            </div>
+            <div class="debug-info">iconColor: #F87171</div>
+        </div>
+        
+        <div class="dream-item">
+            <div class="icon-circle" style="background-color: #34D399;"></div>
+            <div class="dream-content">
+                <div class="dream-title">Dream with Green Icon</div>
+                <div class="dream-description">This dream should have a green icon</div>
+            </div>
+            <div class="debug-info">iconColor: #34D399</div>
+        </div>
+        
+        <div class="dream-item">
+            <div class="icon-circle" style="background-color: #6B7280;"></div>
+            <div class="dream-content">
+                <div class="dream-title">Dream with Default Icon</div>
+                <div class="dream-description">This dream should have a default gray icon</div>
+            </div>
+            <div class="debug-info">iconColor: undefined (fallback: #6B7280)</div>
+        </div>
+        
+        <div class="dream-item">
+            <div class="icon-circle" style="background-color: ;"></div>
+            <div class="dream-content">
+                <div class="dream-title">Dream with Empty Icon Color</div>
+                <div class="dream-description">This dream has empty iconColor</div>
+            </div>
+            <div class="debug-info">iconColor: "" (empty string)</div>
+        </div>
+        
+        <h2>localStorage Check</h2>
+        <button onclick="checkLocalStorage()">Check Local Dreams</button>
+        <div id="localStorage-results"></div>
+        
+        <script>
+            function checkLocalStorage() {
+                const dreams = JSON.parse(localStorage.getItem('dreams_local') || '[]');
+                const resultsDiv = document.getElementById('localStorage-results');
+                
+                if (dreams.length === 0) {
+                    resultsDiv.innerHTML = '<p>No dreams found in localStorage</p>';
+                    return;
+                }
+                
+                let html = '<h3>Dreams in localStorage:</h3>';
+                dreams.forEach((dream, index) => {
+                    html += `
+                        <div class="dream-item">
+                            <div class="icon-circle" style="background-color: ${dream.iconColor || '#6B7280'};"></div>
+                            <div class="dream-content">
+                                <div class="dream-title">${dream.name}</div>
+                                <div class="dream-description">${dream.description || 'No description'}</div>
+                            </div>
+                            <div class="debug-info">
+                                iconColor: ${dream.iconColor || 'undefined'}<br>
+                                hasIconColor: ${dream.hasOwnProperty('iconColor')}<br>
+                                timestamp: ${new Date(dream.timestamp).toLocaleString()}
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                resultsDiv.innerHTML = html;
+            }
+        </script>
+    </div>
+</body>
+</html>

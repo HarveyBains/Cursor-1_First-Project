@@ -55,9 +55,11 @@ export class FirestoreService {
 
   async saveDream(dream: Omit<DreamEntry, 'id'>, userId: string): Promise<string> {
     try {
+      // Ensure iconColor is always set
+      const iconColor = dream.iconColor || '#6B7280';
       // Clean the dream data - remove undefined fields
       const cleanDreamData = Object.fromEntries(
-        Object.entries(dream).filter(([_, value]) => value !== undefined)
+        Object.entries({ ...dream, iconColor }).filter(([_, value]) => value !== undefined)
       );
       
       const dreamData = {
@@ -85,9 +87,11 @@ export class FirestoreService {
 
   async updateDream(dreamId: string, updates: Partial<DreamEntry>): Promise<void> {
     try {
+      // Ensure iconColor is always set
+      const iconColor = updates.iconColor || '#6B7280';
       // Clean the updates data - remove undefined fields
       const cleanUpdates = Object.fromEntries(
-        Object.entries(updates).filter(([_, value]) => value !== undefined)
+        Object.entries({ ...updates, iconColor }).filter(([_, value]) => value !== undefined)
       );
       
       const dreamRef = doc(db, 'dreams', dreamId);

@@ -67,11 +67,12 @@ const VersionEditor: React.FC<VersionEditorProps> = ({ initialVersion, onSave, o
   );
 };
 
-// Utility to clean tags
-function cleanDreamTags(dreams: DreamEntry[]) {
+// Utility to clean tags and ensure iconColor
+function cleanDreamTagsAndColors(dreams: DreamEntry[]) {
   return dreams.map(dream => ({
     ...dream,
     tags: dream.tags ? dream.tags.filter(tag => tag !== '★' && tag !== 'star' && tag !== 'favorites') : [],
+    iconColor: dream.iconColor || '#6B7280',
   }));
 }
 
@@ -81,7 +82,7 @@ function App() {
   const [dreams, setDreams] = useState<DreamEntry[]>(() => {
     // Start with localStorage data by default - will be replaced by Firestore if user is authenticated
     const loadedDreams = loadFromLocalStorage('dreams_local', []);
-    const cleanedDreams = cleanDreamTags(loadedDreams);
+    const cleanedDreams = cleanDreamTagsAndColors(loadedDreams);
     // Save back cleaned dreams if any were changed
     if (JSON.stringify(loadedDreams) !== JSON.stringify(cleanedDreams)) {
       saveToLocalStorage('dreams_local', cleanedDreams);
@@ -263,7 +264,23 @@ function App() {
     let dreamsUnsubscribe: (() => void) | null = null;
     let notepadUnsubscribe: (() => void) | null = null;
     
+    async function migrateIconColorForUserDreams(userId: string) {
+      try {
+        const dreams = await firestoreService.getUserDreams(userId);
+        const dreamsToFix = dreams.filter(d => !d.iconColor);
+        for (const dream of dreamsToFix) {
+          await firestoreService.updateDream(dream.id, { iconColor: '#6B7280' });
+        }
+        if (dreamsToFix.length > 0) {
+          addDebugLog(`🛠️ Migrated ${dreamsToFix.length} dreams to add missing iconColor.`);
+        }
+      } catch (err) {
+        addDebugLog(`❌ Error during iconColor migration: ${err}`);
+      }
+    }
+
     if (user) {
+      migrateIconColorForUserDreams(user.uid);
       addDebugLog(`🔥 Setting up Firestore subscription for user: ${user.uid}`);
       addDebugLog(`👤 User info: ${user.displayName} (${user.email})`);
       
@@ -279,7 +296,7 @@ function App() {
         // Check if this is the first sign-in and we have localStorage data but no Firebase data
         if (firestoreDreams.length === 0) {
           const localDreams = loadFromLocalStorage('dreams_local', []);
-          const cleanedLocalDreams = cleanDreamTags(localDreams);
+          const cleanedLocalDreams = cleanDreamTagsAndColors(localDreams);
           
           if (cleanedLocalDreams.length > 0) {
             addDebugLog(`🔄 Migrating ${cleanedLocalDreams.length} dreams from localStorage to Firebase`);
@@ -310,7 +327,7 @@ function App() {
         if (firestoreDreams.length > 0) {
           addDebugLog(`📋 First dream: ${firestoreDreams[0].name}`);
         }
-        setDreams(firestoreDreams);
+        setDreams(cleanDreamTagsAndColors(firestoreDreams));
       });
 
       // Subscribe to real-time updates from Firestore for notepad
@@ -354,7 +371,7 @@ function App() {
       
       // Load from localStorage
       const loadedDreams = loadFromLocalStorage('dreams_local', []);
-      const cleanedDreams = cleanDreamTags(loadedDreams);
+      const cleanedDreams = cleanDreamTagsAndColors(loadedDreams);
       addDebugLog(`💾 Loaded ${cleanedDreams.length} dreams from localStorage`);
       setDreams(cleanedDreams);
       
@@ -411,9 +428,58 @@ function App() {
     }
   }, [notepadTabs, user, addDebugLog]);
 
-  const handleImportDreams = (importedDreams: DreamEntry[]) => {
-    const cleanedDreams = cleanDreamTags(importedDreams);
-    setDreams(cleanedDreams);
+  const handleImportDreams = async (importedDreams: DreamEntry[]) => {
+    const cleanedDreams = cleanDreamTagsAndColors(importedDreams);
+    
+    if (user) {
+      // For Firebase users, save each imported dream to Firebase
+      try {
+        addDebugLog(`📤 Importing ${cleanedDreams.length} dreams to Firebase`);
+        
+        for (const dream of cleanedDreams) {
+          // Check if dream already exists by ID
+          const existingDream = dreams.find(d => d.id === dream.id);
+          
+          if (existingDream) {
+            // Generate new ID for duplicate and save as new dream
+            const newId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            const dreamData = { ...dream, id: newId, userId: user.uid };
+            await firestoreService.saveDream(dreamData, user.uid);
+            addDebugLog(`✅ Imported dream with new ID: ${newId}`);
+          } else {
+            // Save with original ID
+            const dreamData = { ...dream, userId: user.uid };
+            await firestoreService.saveDream(dreamData, user.uid);
+            addDebugLog(`✅ Imported dream: ${dream.name}`);
+          }
+        }
+        
+        addDebugLog(`✅ Successfully imported ${cleanedDreams.length} dreams to Firebase`);
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        addDebugLog(`❌ Error importing dreams: ${errorMsg}`);
+        console.error('Error importing dreams to Firebase:', error);
+      }
+    } else {
+      // For localStorage users, add imported dreams to existing ones
+      setDreams(prevDreams => {
+        const existingIds = new Set(prevDreams.map(dream => dream.id));
+        const newDreams = cleanedDreams.map(dream => {
+          // Handle duplicate IDs by generating new ones
+          if (existingIds.has(dream.id)) {
+            const newId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            return { ...dream, id: newId };
+          }
+          return dream;
+        });
+        
+        // Combine existing dreams with new imported dreams
+        return cleanDreamTagsAndColors([...prevDreams, ...newDreams]);
+      });
+      
+      addDebugLog(`✅ Successfully imported ${cleanedDreams.length} dreams to localStorage`);
+    }
+    
     setShowImportDialog(false);
   };
 
@@ -566,8 +632,37 @@ function App() {
 
   const handleExportDreams = () => {
     // Ensure exported dreams are always sorted newest first
-    const dreamsToExport = [...filteredDreams].sort((a, b) => b.timestamp - a.timestamp);
-    exportDreams(dreamsToExport);
+    const allDreamsToExport = [...filteredDreams].sort((a, b) => b.timestamp - a.timestamp);
+    
+    // Prompt user for number of records to export
+    const totalRecords = allDreamsToExport.length;
+    const userInput = prompt(`How many records would you like to export? (Total available: ${totalRecords})\n\nLeave empty to export all records:`);
+    
+    // Handle user input
+    if (userInput === null) {
+      // User cancelled the dialog
+      return;
+    }
+    
+    let recordsToExport = allDreamsToExport;
+    
+    if (userInput.trim() !== '') {
+      const requestedCount = parseInt(userInput.trim(), 10);
+      
+      if (isNaN(requestedCount) || requestedCount <= 0) {
+        alert('Please enter a valid positive number.');
+        return;
+      }
+      
+      if (requestedCount > totalRecords) {
+        alert(`You only have ${totalRecords} records available. Exporting all ${totalRecords} records.`);
+        recordsToExport = allDreamsToExport;
+      } else {
+        recordsToExport = allDreamsToExport.slice(0, requestedCount);
+      }
+    }
+    
+    exportDreams(recordsToExport);
   };
 
   const handleSaveNotepad = (tabs: Tab[]) => {
@@ -1279,20 +1374,20 @@ function App() {
                 )}
                 <button
                   onClick={copyDebugToClipboard}
-                  className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
+                  className="px-2 py-1 text-xs rounded font-medium transition-colors border border-primary text-primary hover:bg-primary/10 hover:text-primary-foreground"
                   title="Copy debug info to clipboard"
                 >
                   📋 Copy
                 </button>
                 <button
                   onClick={() => setDebugLogs([])}
-                  className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
+                  className="px-2 py-1 text-xs rounded font-medium transition-colors border border-primary text-primary hover:bg-primary/10 hover:text-primary-foreground"
                 >
                   Clear
                 </button>
                 <button
                   onClick={() => setShowDebugPanel(false)}
-                  className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
+                  className="px-2 py-1 text-xs rounded font-medium transition-colors border border-primary text-primary hover:bg-primary/10 hover:text-primary-foreground"
                 >
                   Close
                 </button>
@@ -1485,11 +1580,18 @@ function App() {
             {filteredDreams.map((dream, index) => {
               const dreamDate = new Date(dream.timestamp).toDateString();
               const prevDreamDate = index > 0 ? new Date(filteredDreams[index - 1].timestamp).toDateString() : '';
+              const currentDate = new Date().toDateString();
               
-              // Only show divider if date changed AND there are multiple dreams on the previous date
+              // Show divider if:
+              // 1. Date changed AND there are multiple dreams on the previous date, OR
+              // 2. This is the first non-current-day entry (separating current day from older entries)
               const showDivider = index > 0 && dreamDate !== prevDreamDate && (() => {
                 const prevDateCount = filteredDreams.filter(d => new Date(d.timestamp).toDateString() === prevDreamDate).length;
-                return prevDateCount > 1;
+                const isPrevDateCurrent = prevDreamDate === currentDate;
+                const isCurrentDateNonCurrent = dreamDate !== currentDate;
+                
+                // Show divider if previous date had multiple dreams OR we're transitioning from current day to older days
+                return prevDateCount > 1 || (isPrevDateCurrent && isCurrentDateNonCurrent);
               })();
 
               return (
@@ -1528,6 +1630,7 @@ function App() {
         allTags={allTags}
         allDreams={dreams}
         onDeleteTag={handleDeleteTag}
+        activeTagFilter={activeTagFilter}
       />
 
       {/* Delete Confirmation Dialog */}

@@ -79,7 +79,7 @@ const ImportDialog: React.FC<ImportDialogProps> = ({ isOpen, onClose, onImport, 
             <textarea
               value={importText}
               onChange={(e) => setImportText(e.target.value)}
-              placeholder="Please paste in your dream journal content here"
+              placeholder="Please paste in your dream journal content here. These dreams will be added to your existing collection."
               className="w-full h-64 px-3 py-2 border border-border rounded bg-muted/20 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm resize-none"
               disabled={parseStatus === 'parsing'}
             />
@@ -87,7 +87,7 @@ const ImportDialog: React.FC<ImportDialogProps> = ({ isOpen, onClose, onImport, 
 
           {parseStatus === 'success' && (
             <div className="px-3 py-2 bg-green-500/10 text-green-500 rounded text-sm">
-              ✅ Found {parsedCount} dreams! Importing now...
+              ✅ Found {parsedCount} dreams! Adding to your collection...
             </div>
           )}
 
@@ -131,7 +131,7 @@ const ImportDialog: React.FC<ImportDialogProps> = ({ isOpen, onClose, onImport, 
                   : 'bg-primary hover:bg-primary/90 text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed'
               }`}
             >
-              {parseStatus === 'success' ? '✅ Importing...' : parseStatus === 'parsing' ? '🔄 Parsing...' : 'Import Dreams'}
+              {parseStatus === 'success' ? '✅ Importing...' : parseStatus === 'parsing' ? '🔄 Parsing...' : 'Import'}
             </button>
           </div>
         </div>

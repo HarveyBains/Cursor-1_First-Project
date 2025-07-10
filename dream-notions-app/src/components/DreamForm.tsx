@@ -21,9 +21,10 @@ interface DreamFormProps {
   allTags: string[];
   allDreams: DreamEntry[]; // Add allDreams prop
   onDeleteTag?: (tagToDelete: string) => void;
+  activeTagFilter?: string | null; // Add activeTagFilter prop
 }
 
-const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToEdit, taskTitles, allTags, allDreams, onDeleteTag }) => {
+const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToEdit, taskTitles, allTags, allDreams, onDeleteTag, activeTagFilter }) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [isFavorite, setIsFavorite] = useState(false);
@@ -75,7 +76,7 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
         setName(''); // No default date in name anymore
         setDescription('');
         setIsFavorite(false);
-        setTags('');
+        setTags(activeTagFilter || ''); // Pre-select active tag filter if available
         setIconColor('');
         const today = new Date();
         const year = today.getFullYear();
@@ -87,7 +88,7 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
       setTagSuggestions([]);
       setNewTagInput(''); // Clear new tag input when form opens
     }
-  }, [isOpen, dreamToEdit]);
+  }, [isOpen, dreamToEdit, activeTagFilter]);
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = e.target.value;
