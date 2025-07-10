@@ -148,14 +148,6 @@ function App() {
   const [contextMenu, setContextMenu] = useState<{ visible: boolean; x: number; y: number; tag: string | null }>({ visible: false, x: 0, y: 0, tag: null });
   const [showRenameTagDialog, setShowRenameTagDialog] = useState(false);
   const [tagToRename, setTagToRename] = useState<string | null>(null);
-  
-  const [isUpdatingFromFirebase, setIsUpdatingFromFirebase] = useState(false);
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
-  const [firebaseDataLoaded, setFirebaseDataLoaded] = useState(false);
-  const [lastSavedNotepadData, setLastSavedNotepadData] = useState<string>('');
-  const [initialLoadDelayComplete, setInitialLoadDelayComplete] = useState(false);
-
-  const [activeNotepadTabId, setActiveNotepadTabId] = useState<string>('');
 
 
   const allUniqueTags = useMemo(() => {
@@ -421,112 +413,67 @@ function App() {
     localStorage.setItem('theme', JSON.stringify(isDarkMode));
   }, [isDarkMode]);
 
-  // Simple Firebase sync - load data when user signs in
+  // New simplified Firebase sync
   useEffect(() => {
     let dreamsUnsubscribe: (() => void) | null = null;
     let notepadUnsubscribe: (() => void) | null = null;
 
     if (user) {
       addDebugLog(`🔥 Setting up Firebase for user: ${user.uid}`);
-      
-      // Simple one-time migration: only if Firebase is empty and localStorage has data
-      const migrateIfNeeded = async () => {
-        try {
-          const localDreams = loadFromLocalStorage('dreams_local', []);
-          const cleanedLocalDreams = cleanDreamTagsAndColors(localDreams);
-          
-          if (cleanedLocalDreams.length > 0) {
-            const firestoreDreams = await firestoreService.getUserDreams(user.uid);
-            
-            if (firestoreDreams.length === 0) {
-              addDebugLog(`🔄 One-time migration: ${cleanedLocalDreams.length} dreams to Firebase`);
-              
-              for (const dream of cleanedLocalDreams) {
-                await firestoreService.saveDreamWithId({
-                  ...dream,
-                  iconColor: dream.iconColor || '#6B7280'
-                }, user.uid);
-              }
-              
-              localStorage.removeItem('dreams_local');
-              addDebugLog(`✅ Migration complete, localStorage cleared`);
-            }
+
+      // Migrate local data to Firebase if needed
+      const migrateLocalData = async () => {
+        const localDreams = loadFromLocalStorage('dreams_local', []);
+        if (localDreams.length > 0) {
+          addDebugLog(`🔄 Migrating ${localDreams.length} local dreams to Firebase...`);
+          for (const dream of localDreams) {
+            await firestoreService.saveDreamWithId(dream, user.uid);
           }
-        } catch (error) {
-          addDebugLog(`❌ Migration error: ${error}`);
+          localStorage.removeItem('dreams_local');
+          addDebugLog('✅ Local dreams migrated and cleared.');
+        }
+
+        const localNotepad = loadFromLocalStorage('notepad_tabs', []);
+        if (localNotepad.length > 0) {
+          addDebugLog(`🔄 Migrating ${localNotepad.length} local notepad tabs to Firebase...`);
+          await firestoreService.saveNotepadTabs(localNotepad, user.uid);
+          localStorage.removeItem('notepad_tabs');
+          addDebugLog('✅ Local notepad migrated and cleared.');
         }
       };
 
-      migrateIfNeeded();
-      
-      // Simple subscription to Firebase data
+      migrateLocalData();
+
+      // Subscribe to Firebase data
       dreamsUnsubscribe = firestoreService.subscribeToUserDreams(user.uid, (firestoreDreams) => {
-        addDebugLog(`📥 Firebase data: ${firestoreDreams.length} dreams`);
+        addDebugLog(`📥 Received ${firestoreDreams.length} dreams from Firebase.`);
         setDreams(cleanDreamTagsAndColors(firestoreDreams));
-        setFirebaseDataLoaded(true);
       });
 
-      // Subscribe to real-time updates from Firestore for notepad
-      notepadUnsubscribe = firestoreService.subscribeToNotepadTabs(user.uid, (firebaseNotepadTabs) => {
-        addDebugLog(`📝 Received notepad update from Firebase: ${firebaseNotepadTabs.length} tabs`);
-        addDebugLog(`📝 User ID: ${user.uid}`);
-        addDebugLog(`📝 Current time: ${new Date().toISOString()}`);
-        
-        // Add a delay during initial load to prevent overwriting local data
-        if (isInitialLoad && !initialLoadDelayComplete) {
-          addDebugLog(`📝 Initial load detected, delaying Firebase update by 2 seconds...`);
-          setTimeout(() => {
-            addDebugLog(`📝 Processing delayed Firebase update...`);
-            setInitialLoadDelayComplete(true);
-            processFirebaseNotepadUpdate(firebaseNotepadTabs);
-          }, 2000);
-          return;
+      notepadUnsubscribe = firestoreService.subscribeToNotepadTabs(user.uid, (data) => {
+        if (data && data.tabs) {
+          addDebugLog(`📥 Received ${data.tabs.length} notepad tabs from Firebase.`);
+          setNotepadTabs(data.tabs);
+        } else {
+          addDebugLog('📥 Received empty notepad data from Firebase.');
+          setNotepadTabs([]);
         }
-        
-        processFirebaseNotepadUpdate(firebaseNotepadTabs);
       });
+
     } else {
-      addDebugLog('❌ No user, loading from localStorage');
-      
-      // Before loading from localStorage, check if we have current Firebase data to sync
-      if (dreams.length > 0 && dreams[0]?.userId) {
-        addDebugLog(`🔄 Syncing ${dreams.length} dreams from Firebase to localStorage before switching to local mode`);
-        // Remove userId from dreams before saving to localStorage
-        const localDreams = dreams.map(dream => {
-          const { userId, ...dreamWithoutUserId } = dream;
-          return dreamWithoutUserId;
-        });
-        saveToLocalStorage('dreams_local', localDreams);
-      }
-      
-      // If we have current notepad data, sync it to localStorage
-      if (notepadTabs.length > 0) {
-        addDebugLog(`🔄 Syncing ${notepadTabs.length} notepad tabs from Firebase to localStorage`);
-        saveToLocalStorage('notepad_tabs', notepadTabs);
-      }
-      
-      // Load from localStorage
-      const loadedDreams = loadFromLocalStorage('dreams_local', []);
-      const cleanedDreams = cleanDreamTagsAndColors(loadedDreams);
-      addDebugLog(`💾 Loaded ${cleanedDreams.length} dreams from localStorage`);
-      setDreams(cleanedDreams);
-      
-      // Load notepad tabs from localStorage
-      const localTabs = loadFromLocalStorage('notepad_tabs', null);
-      if (localTabs) {
-        setNotepadTabs(localTabs);
-      }
+      // User is signed out, clear local state
+      addDebugLog('🔥 User signed out, clearing local data.');
+      setDreams([]);
+      setNotepadTabs([]);
     }
-    
+
     return () => {
-      if (dreamsUnsubscribe) {
-        dreamsUnsubscribe();
-      }
-      if (notepadUnsubscribe) {
-        notepadUnsubscribe();
-      }
+      if (dreamsUnsubscribe) dreamsUnsubscribe();
+      if (notepadUnsubscribe) notepadUnsubscribe();
     };
-  }, [user, addDebugLog, notepadTabs.length, isInitialLoad]);
+  }, [user, addDebugLog]);
+
+  
 
   useEffect(() => {
     // Only save to localStorage for unauthenticated users
@@ -545,24 +492,14 @@ function App() {
     saveToLocalStorage('app_subheader', subheader);
   }, [subheader]);
 
-  // Effect to save notepad changes
+  // Effect to save notepad changes for unauthenticated users
   useEffect(() => {
-    // Save to localStorage for both authenticated and unauthenticated users
-    const backupData = {
-      tabs: notepadTabs,
-      timestamp: new Date().toISOString(),
-    };
-    saveToLocalStorage('notepad_tabs_backup', backupData);
-
-    if (user) {
-      // For authenticated users, save to Firebase
-      addDebugLog('[SYNC] Local change detected. Saving to Firebase.');
-      firestoreService.saveNotepadTabs(notepadTabs, user.uid);
-    } else {
+    if (!user) {
       // For unauthenticated users, save to the primary localStorage key
       saveToLocalStorage('notepad_tabs', notepadTabs);
     }
-  }, [notepadTabs, user, addDebugLog]);
+    // For authenticated users, data is saved explicitly in handleSaveNotepad
+  }, [notepadTabs, user]);
 
   const handleImportDreams = async (importedDreams: DreamEntry[]) => {
     const cleanedDreams = cleanDreamTagsAndColors(importedDreams);
@@ -795,6 +732,11 @@ function App() {
   const handleSaveNotepad = (tabs: Tab[]) => {
     setNotepadTabs(tabs);
     setShowNotepadDialog(false);
+
+    if (user) {
+      addDebugLog('📝 Saving notepad tabs to Firebase...');
+      firestoreService.saveNotepadTabs(tabs, user.uid);
+    }
   };
 
   const handleDeleteTag = (tagToDelete: string) => {
@@ -1039,24 +981,13 @@ function App() {
     addDebugLog(`📝 Local content: ${JSON.stringify(notepadTabs.map(t => ({ id: t.id, name: t.name, contentLength: t.content.length })))}`);
     
     try {
-      // Temporarily disable Firebase updates
-      setIsUpdatingFromFirebase(true);
-      
       // Force save current local data to Firebase
       await firestoreService.saveNotepadTabs(notepadTabs, user.uid);
       addDebugLog(`✅ Force sync completed - local data saved to Firebase`);
       
-      // Reset flags after a delay
-      setTimeout(() => {
-        setIsUpdatingFromFirebase(false);
-        setIsInitialLoad(false);
-        addDebugLog(`🔄 Firebase sync re-enabled`);
-      }, 2000);
-      
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       addDebugLog(`❌ Force sync failed: ${errorMsg}`);
-      setIsUpdatingFromFirebase(false);
     }
   };
 
@@ -1224,102 +1155,7 @@ function App() {
     }
   };
 
-  const processFirebaseNotepadUpdate = (firebaseNotepadTabs: any[]) => {
-    // Check if we have recent local changes that should be preserved
-    const localBackup = loadFromLocalStorage('notepad_tabs_backup', null);
-    const currentTabsString = JSON.stringify(notepadTabs);
-    const firebaseTabsString = JSON.stringify(firebaseNotepadTabs);
-    
-    // Deep comparison of just the tab content, ignoring metadata
-    const currentTabsForComparison = notepadTabs.map(tab => ({
-      id: tab.id,
-      name: tab.name,
-      content: tab.content,
-      isDeletable: tab.isDeletable
-    }));
-    const firebaseTabsForComparison = firebaseNotepadTabs.map((tab: any) => ({
-      id: tab.id,
-      name: tab.name,
-      content: tab.content,
-      isDeletable: tab.isDeletable
-    }));
-    
-    const currentTabsStringClean = JSON.stringify(currentTabsForComparison);
-    const firebaseTabsStringClean = JSON.stringify(firebaseTabsForComparison);
-    
-    // If we have local data and Firebase data is different, preserve local data
-    if (notepadTabs.length > 0 && currentTabsStringClean !== firebaseTabsStringClean) {
-      addDebugLog(`📝 Local data differs from Firebase - preserving local data`);
-      addDebugLog(`📝 Local tabs: ${notepadTabs.length}, Firebase tabs: ${firebaseNotepadTabs.length}`);
-      
-      // Save local data to Firebase to override
-      if (!isUpdatingFromFirebase && user) {
-        addDebugLog(`📤 Saving local data to Firebase to override...`);
-        setIsUpdatingFromFirebase(true);
-        firestoreService.saveNotepadTabs(notepadTabs, user.uid).then(() => {
-          addDebugLog(`✅ Local data saved to Firebase successfully`);
-          setTimeout(() => setIsUpdatingFromFirebase(false), 1000);
-        }).catch(error => {
-          addDebugLog(`❌ Failed to save local data: ${error}`);
-          setIsUpdatingFromFirebase(false);
-        });
-      }
-      return;
-    }
-    
-    // Only update if the data has actually changed and we don't have local data
-    if (currentTabsStringClean !== firebaseTabsStringClean) {
-      addDebugLog(`📝 Data has changed, updating from Firebase`);
-      addDebugLog(`📝 Firebase tabs content: ${JSON.stringify(firebaseNotepadTabs.map((t: any) => ({ id: t.id, name: t.name, contentLength: t.content.length })))}`);
-      
-      setIsUpdatingFromFirebase(true);
-      setNotepadTabs(firebaseNotepadTabs);
-      setFirebaseDataLoaded(true);
-      setIsInitialLoad(false);
-      // Reset the flag after a short delay
-      setTimeout(() => setIsUpdatingFromFirebase(false), 1000);
-    } else {
-      addDebugLog(`📝 No change detected, skipping update`);
-      if (isInitialLoad) {
-        setIsInitialLoad(false);
-      }
-    }
-    
-    if (firebaseNotepadTabs.length === 0) {
-      // Check if we have local notepad data to migrate
-      const localTabs = loadFromLocalStorage('notepad_tabs', null);
-      if (localTabs && localTabs.length > 0) {
-        addDebugLog(`🔄 Migrating ${localTabs.length} notepad tabs from localStorage to Firebase`);
-        // Save local tabs to Firebase
-        if (user) {
-          firestoreService.saveNotepadTabs(localTabs, user.uid).then(() => {
-            addDebugLog(`✅ Successfully migrated notepad tabs to Firebase`);
-            setNotepadTabs(localTabs);
-            setFirebaseDataLoaded(true);
-          }).catch(error => {
-            addDebugLog(`❌ Failed to migrate notepad tabs: ${error}`);
-            // Fall back to local tabs if migration fails
-            setNotepadTabs(localTabs);
-            setFirebaseDataLoaded(true);
-          });
-        } else {
-          // Fall back to local tabs if no user
-          setNotepadTabs(localTabs);
-          setFirebaseDataLoaded(true);
-        }
-      } else {
-        addDebugLog(`📝 No notepad data found, using default tabs`);
-        // Set default tabs if no data exists, but don't save to Firebase yet
-        // Only save when user actually makes changes
-        const defaultTabs = [
-          { id: 'todo', name: 'To Do', content: '', isDeletable: false },
-          { id: 'notes', name: 'Notes', content: '', isDeletable: true }
-        ];
-        setNotepadTabs(defaultTabs);
-        setFirebaseDataLoaded(true);
-      }
-    }
-  };
+  
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -1492,6 +1328,59 @@ function App() {
                       className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
                     >
                       Restore From Backup
+                    </button>
+                    <button
+                      onClick={() => {
+                        addDebugLog('Current local state:');
+                        console.log('Dreams:', dreams);
+                        console.log('Notepad Tabs:', notepadTabs);
+                      }}
+                      className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
+                    >
+                      Log Local State
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (user) {
+                          const newDream = {
+                            name: 'Test Dream',
+                            content: 'This is a test dream.',
+                            tags: ['test'],
+                            timestamp: Date.now(),
+                            isFavorite: false,
+                          } as DreamEntry;
+                          await firestoreService.saveDream(newDream, user.uid);
+                          addDebugLog('Added test dream to Firebase.');
+                        }
+                      }}
+                      className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
+                    >
+                      Simulate Add
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (user && dreams.length > 0) {
+                          const dreamToUpdate = dreams[0];
+                          const updatedDream = { ...dreamToUpdate, name: `Updated Dream ${Date.now()}` };
+                          await firestoreService.updateDream(dreamToUpdate.id, updatedDream);
+                          addDebugLog('Updated test dream in Firebase.');
+                        }
+                      }}
+                      className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
+                    >
+                      Simulate Update
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (user && dreams.length > 0) {
+                          const dreamToDelete = dreams[0];
+                          await firestoreService.deleteDream(dreamToDelete.id);
+                          addDebugLog('Deleted test dream from Firebase.');
+                        }
+                      }}
+                      className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
+                    >
+                      Simulate Delete
                     </button>
                     {/* Delete All Dreams button for legacy cleanup */}
                     <button
