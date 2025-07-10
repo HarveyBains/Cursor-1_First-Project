@@ -55,52 +55,34 @@ export class FirestoreService {
 
   async saveDream(dream: Omit<DreamEntry, 'id'>, userId: string): Promise<string> {
     try {
-      // Ensure iconColor is always set
-      const iconColor = dream.iconColor || '#6B7280';
-      // Clean the dream data - remove undefined fields
-      const cleanDreamData = Object.fromEntries(
-        Object.entries({ ...dream, iconColor }).filter(([_, value]) => value !== undefined)
-      );
-      
       const dreamData = {
-        ...cleanDreamData,
+        ...dream,
+        iconColor: dream.iconColor || '#6B7280',
         userId,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
       
-      console.log('🔥 Attempting to save dream to Firestore:', dreamData);
       const docRef = await addDoc(collection(db, 'dreams'), dreamData);
-      console.log('✅ Dream saved successfully with ID:', docRef.id);
+      console.log('✅ Dream saved with ID:', docRef.id);
       return docRef.id;
     } catch (error) {
-      console.error('❌ Error saving dream to Firestore:', error);
-      if (error instanceof Error) {
-        console.error('Error message:', error.message);
-      }
-      if (error && typeof error === 'object' && 'code' in error) {
-        console.error('Error code:', error.code);
-      }
+      console.error('❌ Error saving dream:', error);
       throw error;
     }
   }
 
   async updateDream(dreamId: string, updates: Partial<DreamEntry>): Promise<void> {
     try {
-      // Ensure iconColor is always set
-      const iconColor = updates.iconColor || '#6B7280';
-      // Clean the updates data - remove undefined fields
-      const cleanUpdates = Object.fromEntries(
-        Object.entries({ ...updates, iconColor }).filter(([_, value]) => value !== undefined)
-      );
-      
       const dreamRef = doc(db, 'dreams', dreamId);
       await updateDoc(dreamRef, {
-        ...cleanUpdates,
+        ...updates,
+        iconColor: updates.iconColor || '#6B7280',
         updatedAt: new Date().toISOString()
       });
+      console.log('✅ Dream updated successfully');
     } catch (error) {
-      console.error('Error updating dream:', error);
+      console.error('❌ Error updating dream:', error);
       throw error;
     }
   }
@@ -473,6 +455,8 @@ export class FirestoreService {
   // Save a dream with a specific ID (for migration)
   async saveDreamWithId(dream: DreamEntry, userId: string): Promise<void> {
     try {
+      console.log('💾 Saving dream with specific ID:', dream.id, 'iconColor:', dream.iconColor);
+      
       const iconColor = dream.iconColor || '#6B7280';
       const cleanDreamData = Object.fromEntries(
         Object.entries({ ...dream, iconColor }).filter(([_, value]) => value !== undefined)
@@ -481,9 +465,12 @@ export class FirestoreService {
         ...cleanDreamData,
         userId,
         createdAt: dream.createdAt || new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        updatedAt: dream.updatedAt || new Date().toISOString()
       };
+      
+      console.log('🔥 Saving dream with ID to Firestore with iconColor:', dreamData.iconColor);
       await setDoc(doc(db, 'dreams', dream.id), dreamData);
+      console.log('✅ Dream saved successfully with specific ID:', dream.id);
     } catch (error) {
       console.error('❌ Error saving dream with specific ID to Firestore:', error);
       throw error;

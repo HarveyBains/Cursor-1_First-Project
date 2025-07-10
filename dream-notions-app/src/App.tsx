@@ -421,99 +421,49 @@ function App() {
     localStorage.setItem('theme', JSON.stringify(isDarkMode));
   }, [isDarkMode]);
 
-  // Firebase sync effect
+  // Simple Firebase sync - load data when user signs in
   useEffect(() => {
     let dreamsUnsubscribe: (() => void) | null = null;
     let notepadUnsubscribe: (() => void) | null = null;
-    
-    async function migrateIconColorForUserDreams(userId: string) {
-      try {
-        const dreams = await firestoreService.getUserDreams(userId);
-        const dreamsToFix = dreams.filter(d => !d.iconColor);
-        for (const dream of dreamsToFix) {
-          await firestoreService.updateDream(dream.id, { iconColor: '#6B7280' });
-        }
-        if (dreamsToFix.length > 0) {
-          addDebugLog(`🛠️ Migrated ${dreamsToFix.length} dreams to add missing iconColor.`);
-        }
-      } catch (err) {
-        addDebugLog(`❌ Error during iconColor migration: ${err}`);
-      }
-    }
 
     if (user) {
-      // MIGRATION: Use saveDreamWithId to preserve dream IDs
-      async function migrateDreamsWithCorrectIds() {
-        if (!user) return;
-        const localDreams = loadFromLocalStorage('dreams_local', []);
-        const cleanedLocalDreams = cleanDreamTagsAndColors(localDreams);
-        // Check if Firestore is empty before uploading
-        const firestoreDreams = await firestoreService.getUserDreams(user.uid);
-        if (firestoreDreams.length === 0 && cleanedLocalDreams.length > 0) {
-          addDebugLog(`🔄 Migrating ${cleanedLocalDreams.length} dreams from localStorage to Firebase (with correct IDs)`);
-          try {
-            for (const dream of cleanedLocalDreams) {
-              await firestoreService.saveDreamWithId(dream, user.uid);
-            }
-            addDebugLog(`✅ Successfully migrated ${cleanedLocalDreams.length} dreams to Firebase with correct IDs`);
-            localStorage.removeItem('dreams_local');
-            addDebugLog(`🗑️ Cleared localStorage after successful migration`);
-          } catch (error) {
-            addDebugLog(`❌ Error migrating dreams with correct IDs: ${error}`);
-          }
-        } else if (cleanedLocalDreams.length > 0) {
-          addDebugLog('⚠️ Skipped migration: Firestore already contains dreams or localStorage is empty.');
-        }
-      }
-      migrateDreamsWithCorrectIds();
-      if (user) migrateIconColorForUserDreams(user.uid);
-      addDebugLog(`🔥 Setting up Firestore subscription for user: ${user.uid}`);
-      addDebugLog(`👤 User info: ${user.displayName} (${user.email})`);
+      addDebugLog(`🔥 Setting up Firebase for user: ${user.uid}`);
       
-      // Reset flags when user changes
-      setIsInitialLoad(true);
-      setFirebaseDataLoaded(false);
-      setInitialLoadDelayComplete(false);
-      
-      // Subscribe to real-time updates from Firestore for dreams
-      dreamsUnsubscribe = firestoreService.subscribeToUserDreams(user.uid, async (firestoreDreams) => {
-        addDebugLog(`📥 Received ${firestoreDreams.length} dreams from Firestore`);
-        
-        // Check if this is the first sign-in and we have localStorage data but no Firebase data
-        if (firestoreDreams.length === 0) {
+      // Simple one-time migration: only if Firebase is empty and localStorage has data
+      const migrateIfNeeded = async () => {
+        try {
           const localDreams = loadFromLocalStorage('dreams_local', []);
           const cleanedLocalDreams = cleanDreamTagsAndColors(localDreams);
           
           if (cleanedLocalDreams.length > 0) {
-            addDebugLog(`🔄 Migrating ${cleanedLocalDreams.length} dreams from localStorage to Firebase`);
+            const firestoreDreams = await firestoreService.getUserDreams(user.uid);
             
-            try {
-              // Upload all local dreams to Firebase with proper userId
-              for (const dream of cleanedLocalDreams) {
-                const dreamData = { 
-                  ...dream, 
-                  userId: user.uid, // Ensure userId is set
-                  timestamp: dream.timestamp || Date.now() 
-                };
-                await firestoreService.saveDream(dreamData, user.uid);
-              }
-              addDebugLog(`✅ Successfully migrated ${cleanedLocalDreams.length} dreams to Firebase`);
+            if (firestoreDreams.length === 0) {
+              addDebugLog(`🔄 One-time migration: ${cleanedLocalDreams.length} dreams to Firebase`);
               
-              // Clear localStorage after successful migration
+              for (const dream of cleanedLocalDreams) {
+                await firestoreService.saveDreamWithId({
+                  ...dream,
+                  iconColor: dream.iconColor || '#6B7280'
+                }, user.uid);
+              }
+              
               localStorage.removeItem('dreams_local');
-              addDebugLog(`🗑️ Cleared localStorage after successful migration`);
-            } catch (error) {
-              addDebugLog(`❌ Error migrating dreams: ${error}`);
+              addDebugLog(`✅ Migration complete, localStorage cleared`);
             }
-          } else {
-            addDebugLog(`📋 No local dreams to migrate`);
           }
+        } catch (error) {
+          addDebugLog(`❌ Migration error: ${error}`);
         }
-        
-        if (firestoreDreams.length > 0) {
-          addDebugLog(`📋 First dream: ${firestoreDreams[0].name}`);
-        }
+      };
+
+      migrateIfNeeded();
+      
+      // Simple subscription to Firebase data
+      dreamsUnsubscribe = firestoreService.subscribeToUserDreams(user.uid, (firestoreDreams) => {
+        addDebugLog(`📥 Firebase data: ${firestoreDreams.length} dreams`);
         setDreams(cleanDreamTagsAndColors(firestoreDreams));
+        setFirebaseDataLoaded(true);
       });
 
       // Subscribe to real-time updates from Firestore for notepad
@@ -686,17 +636,14 @@ function App() {
         } else {
           // Add new dream
           addDebugLog(`➕ Adding new dream: ${newDream.name}`);
-          const dreamData = { ...newDream, timestamp: Date.now() };
-          addDebugLog(`📤 Sending to Firebase: ${JSON.stringify(dreamData)}`);
-          const dreamId = await firestoreService.saveDream(dreamData, user.uid);
+          const dreamId = await firestoreService.saveDream({
+            ...newDream,
+            timestamp: Date.now()
+          }, user.uid);
           addDebugLog(`✅ Dream saved with ID: ${dreamId}`);
         }
       } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-        const errorCode = error instanceof Error && 'code' in error ? error.code : 'unknown';
-        addDebugLog(`❌ Error saving dream: ${errorCode} - ${errorMsg}`);
-        addDebugLog(`🔍 User ID: ${user.uid}`);
-        addDebugLog(`🔍 Dream data: ${JSON.stringify(newDream)}`);
+        addDebugLog(`❌ Error saving dream: ${error}`);
         console.error('Error saving dream to Firebase:', error);
       }
     } else {
@@ -708,7 +655,12 @@ function App() {
           return prevDreams.map(dream => dream.id === newDream.id ? newDream : dream);
         } else {
           // Add new dream
-          return [...prevDreams, { ...newDream, id: Date.now().toString(), timestamp: Date.now() }];
+          const newDreamData = { 
+            ...newDream, 
+            id: Date.now().toString(), 
+            timestamp: Date.now()
+          };
+          return [...prevDreams, newDreamData];
         }
       });
     }
