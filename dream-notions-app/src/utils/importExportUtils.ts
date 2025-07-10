@@ -51,25 +51,36 @@ export const parseImportMarkdown = (markdownText: string): DreamEntry[] => {
       const name = dreamFormatMatch[2].trim();
       const tagsString = dreamFormatMatch[3] ? dreamFormatMatch[3].trim() : '';
       
-      // Parse tags more flexibly - handle #tags and regular tags
+      // Parse tags - ONLY split on commas, preserve / for hierarchical tags
       let tags: string[] = [];
       if (tagsString) {
-        tags = tagsString.split(/[,\/]/).map(tag => {
-          tag = tag.trim();
-          // Remove leading # if present, we'll add it back if needed
+        const originalTags = tagsString.split(',').map(t => t.trim());
+        console.log(`Parsing tags from: "${tagsString}"`);
+        console.log('Original tags:', originalTags);
+        
+        tags = originalTags.map(tag => {
+          const originalTag = tag;
+          
+          // Normalize tag formatting to prevent duplicates:
+          // 1. Remove any existing # prefix first
           if (tag.startsWith('#')) {
             tag = tag.substring(1);
           }
-          return tag;
-        }).filter(tag => tag !== '' && tag !== '★' && tag !== 'star' && tag !== 'favorites');
-        
-        // Add # prefix to tags that don't have special prefixes
-        tags = tags.map(tag => {
-          if (!tag.includes('/') && !tag.startsWith('#')) {
-            return `#${tag}`;
+          
+          // 2. Add # prefix ONLY to standalone tags (no /)
+          // Hierarchical tags (containing /) should never have # prefix
+          if (!tag.includes('/')) {
+            tag = `#${tag}`;
           }
+          
+          if (originalTag !== tag) {
+            console.log(`  Normalized: "${originalTag}" → "${tag}"`);
+          }
+          
           return tag;
-        });
+        }).filter(tag => tag !== '' && tag !== '#' && tag !== '★' && tag !== 'star' && tag !== 'favorites');
+        
+        console.log('Final normalized tags:', tags);
       }
       
       // Get description from remaining lines

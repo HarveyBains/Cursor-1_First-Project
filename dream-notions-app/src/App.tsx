@@ -155,8 +155,44 @@ function App() {
 
 
   const allUniqueTags = useMemo(() => {
-    // Filter out the star icon and any favorites/star tags
-    return Array.from(new Set(dreams.flatMap(dream => dream.tags || []))).filter(tag => tag !== '★' && tag !== 'star' && tag !== 'favorites');
+    // Get all tags and normalize them to prevent duplicates
+    const allTags = dreams.flatMap(dream => dream.tags || []);
+    const normalizedTags = new Set<string>();
+    
+    allTags.forEach(tag => {
+      // Skip invalid tags
+      if (tag === '★' || tag === 'star' || tag === 'favorites' || !tag) {
+        return;
+      }
+      
+      // Normalize tag format: 
+      // - Standalone tags should have # prefix
+      // - Hierarchical tags (with /) should not have # prefix
+      let normalizedTag = tag;
+      
+      if (tag.includes('/')) {
+        // Hierarchical tag - remove # prefix if present
+        if (tag.startsWith('#')) {
+          normalizedTag = tag.substring(1);
+        }
+      } else {
+        // Standalone tag - ensure # prefix
+        if (!tag.startsWith('#')) {
+          normalizedTag = `#${tag}`;
+        }
+      }
+      
+      normalizedTags.add(normalizedTag);
+    });
+    
+    const result = Array.from(normalizedTags);
+    console.log('=== TAG NORMALIZATION ===');
+    console.log('Original tags count:', allTags.length);
+    console.log('Normalized unique tags count:', result.length);
+    console.log('Normalized tags:', result.sort());
+    console.log('========================');
+    
+    return result;
   }, [dreams]);
 
   // Debug logging function
@@ -207,10 +243,14 @@ function App() {
   useEffect(() => {
     // Initialize visible tags with top-level tags when component mounts or activeTagFilter is null
     if (!activeTagFilter) {
-      setCurrentVisibleTags(getTopLevelTags(allUniqueTags));
+      const topLevelTags = getTopLevelTags(allUniqueTags);
+      console.log('Setting top-level tags:', topLevelTags);
+      console.log('All unique tags:', allUniqueTags);
+      setCurrentVisibleTags(topLevelTags);
     } else {
       // If a tag filter is active, ensure currentVisibleTags reflects its children or itself
       const children = getChildTags(allUniqueTags, activeTagFilter);
+      console.log(`Children of "${activeTagFilter}":`, children);
       if (children.length > 0) {
         setCurrentVisibleTags(children);
       } else {
@@ -219,33 +259,111 @@ function App() {
     }
   }, [allUniqueTags, activeTagFilter]);
 
-  // Helper to get top-level tags
+  // Helper to get top-level tags (only level 1 tags, no children)
   const getTopLevelTags = (tags: string[]): string[] => {
-    const topLevels = new Set<string>();
+    const rootTags = new Set<string>();
+    
+    // Extract all possible hierarchy levels
+    const allHierarchyLevels = new Set<string>();
     tags.forEach(tag => {
-      const top = tag.split('/')[0];
-      if (top !== '★' && top !== 'star' && top !== 'favorites') {
-        topLevels.add(top);
+      if (tag.includes('/')) {
+        const parts = tag.split('/');
+        // Add all possible levels: Dreams, Dreams/Activity, Dreams/Activity/Work
+        for (let i = 1; i <= parts.length; i++) {
+          allHierarchyLevels.add(parts.slice(0, i).join('/'));
+        }
       }
     });
-    return Array.from(topLevels).sort();
+    
+    // Get true root parts (level 1 only)
+    const hierarchicalRoots = new Set<string>();
+    tags.forEach(tag => {
+      if (tag.includes('/')) {
+        const rootPart = tag.split('/')[0];
+        hierarchicalRoots.add(rootPart);
+      }
+    });
+    
+    tags.forEach(tag => {
+      // Skip invalid tags
+      if (!tag || tag === '★' || tag === 'star' || tag === 'favorites') {
+        return;
+      }
+      
+      // For hierarchical tags (containing /), only include the root part (level 1)
+      if (tag.includes('/')) {
+        const rootPart = tag.split('/')[0];
+        rootTags.add(rootPart);
+        return;
+      }
+      
+      // For # tags, always include them as root level
+      if (tag.startsWith('#')) {
+        rootTags.add(tag);
+        return;
+      }
+      
+      // For standalone tags, only include if they're not part of any hierarchical structure
+      // and they're not intermediate levels of a hierarchy
+      const isPartOfHierarchy = hierarchicalRoots.has(tag) || allHierarchyLevels.has(tag);
+      if (!isPartOfHierarchy) {
+        rootTags.add(tag);
+      }
+    });
+    
+    const result = Array.from(rootTags).sort();
+    console.log('=== TAG FILTERING DEBUG (INFINITE HIERARCHY) ===');
+    console.log('All input tags:', tags);
+    console.log('All hierarchy levels found:', Array.from(allHierarchyLevels).sort());
+    console.log('Root level tags (level 1):', Array.from(hierarchicalRoots));
+    console.log('Final root tags to display:', result);
+    console.log('================================================');
+    return result;
   };
 
   // Helper to get direct children of a given parent tag
   const getChildTags = (tags: string[], parentTag: string): string[] => {
     const children = new Set<string>();
+    const parentParts = parentTag.split('/');
+    const parentLevel = parentParts.length;
+    
+    // Extract all possible hierarchy levels from existing tags
+    const allHierarchyLevels = new Set<string>();
     tags.forEach(tag => {
-      if (tag.startsWith(`${parentTag}/`)) {
+      if (tag.includes('/')) {
         const parts = tag.split('/');
-        if (parts.length > parentTag.split('/').length) {
-          const child = parts.slice(0, parentTag.split('/').length + 1).join('/');
-          if (child !== '★' && child !== 'star' && child !== 'favorites') {
-            children.add(child);
-          }
+        // Add all possible levels: Dreams, Dreams/Activity, Dreams/Activity/Work
+        for (let i = 1; i <= parts.length; i++) {
+          allHierarchyLevels.add(parts.slice(0, i).join('/'));
         }
       }
     });
-    return Array.from(children).sort();
+    
+    // Find direct children (exactly one level deeper)
+    Array.from(allHierarchyLevels).forEach(hierarchyLevel => {
+      if (hierarchyLevel.startsWith(`${parentTag}/`)) {
+        const parts = hierarchyLevel.split('/');
+        // Only include if it's exactly one level deeper
+        if (parts.length === parentLevel + 1) {
+          children.add(hierarchyLevel);
+        }
+      }
+    });
+    
+    // Also include any full tags that are direct children
+    tags.forEach(tag => {
+      if (tag.startsWith(`${parentTag}/`)) {
+        const parts = tag.split('/');
+        // If this tag is exactly one level deeper, include it
+        if (parts.length === parentLevel + 1) {
+          children.add(tag);
+        }
+      }
+    });
+    
+    const result = Array.from(children).sort();
+    console.log(`Children for "${parentTag}" (level ${parentLevel}):`, result);
+    return result;
   };
 
   useEffect(() => {
@@ -280,7 +398,31 @@ function App() {
     }
 
     if (user) {
-      migrateIconColorForUserDreams(user.uid);
+      // MIGRATION: Use saveDreamWithId to preserve dream IDs
+      async function migrateDreamsWithCorrectIds() {
+        if (!user) return;
+        const localDreams = loadFromLocalStorage('dreams_local', []);
+        const cleanedLocalDreams = cleanDreamTagsAndColors(localDreams);
+        // Check if Firestore is empty before uploading
+        const firestoreDreams = await firestoreService.getUserDreams(user.uid);
+        if (firestoreDreams.length === 0 && cleanedLocalDreams.length > 0) {
+          addDebugLog(`🔄 Migrating ${cleanedLocalDreams.length} dreams from localStorage to Firebase (with correct IDs)`);
+          try {
+            for (const dream of cleanedLocalDreams) {
+              await firestoreService.saveDreamWithId(dream, user.uid);
+            }
+            addDebugLog(`✅ Successfully migrated ${cleanedLocalDreams.length} dreams to Firebase with correct IDs`);
+            localStorage.removeItem('dreams_local');
+            addDebugLog(`🗑️ Cleared localStorage after successful migration`);
+          } catch (error) {
+            addDebugLog(`❌ Error migrating dreams with correct IDs: ${error}`);
+          }
+        } else if (cleanedLocalDreams.length > 0) {
+          addDebugLog('⚠️ Skipped migration: Firestore already contains dreams or localStorage is empty.');
+        }
+      }
+      migrateDreamsWithCorrectIds();
+      if (user) migrateIconColorForUserDreams(user.uid);
       addDebugLog(`🔥 Setting up Firestore subscription for user: ${user.uid}`);
       addDebugLog(`👤 User info: ${user.displayName} (${user.email})`);
       
@@ -1348,6 +1490,18 @@ function App() {
                     >
                       Restore From Backup
                     </button>
+                    {/* Delete All Dreams button for legacy cleanup */}
+                    <button
+                      onClick={async () => {
+                        if (window.confirm('Are you sure you want to delete ALL your dreams from Firebase? This cannot be undone.')) {
+                          await firestoreService.deleteAllUserDreams(user.uid);
+                          addDebugLog('🗑️ All dreams deleted from Firebase for this user.');
+                        }
+                      }}
+                      className="px-2 py-1 text-xs rounded font-medium transition-colors border border-red-500 text-red-500 hover:bg-red-500/10 hover:text-red-600"
+                    >
+                      Delete All Dreams (Firebase)
+                    </button>
                   </>
                 )}
                 {!user && (
@@ -1369,6 +1523,19 @@ function App() {
                       className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
                     >
                       Troubleshoot Auth
+                    </button>
+                    {/* Delete All Dreams (Local) button for localStorage cleanup */}
+                    <button
+                      onClick={() => {
+                        if (window.confirm('Are you sure you want to delete ALL your dreams from localStorage? This cannot be undone.')) {
+                          setDreams([]);
+                          localStorage.removeItem('dreams_local');
+                          addDebugLog('🗑️ All dreams deleted from localStorage.');
+                        }
+                      }}
+                      className="px-2 py-1 text-xs rounded font-medium transition-colors border border-red-500 text-red-500 hover:bg-red-500/10 hover:text-red-600"
+                    >
+                      Delete All Dreams (Local)
                     </button>
                   </>
                 )}

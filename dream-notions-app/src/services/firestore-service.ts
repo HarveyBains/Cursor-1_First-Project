@@ -470,6 +470,26 @@ export class FirestoreService {
     return unsubscribe;
   }
 
+  // Save a dream with a specific ID (for migration)
+  async saveDreamWithId(dream: DreamEntry, userId: string): Promise<void> {
+    try {
+      const iconColor = dream.iconColor || '#6B7280';
+      const cleanDreamData = Object.fromEntries(
+        Object.entries({ ...dream, iconColor }).filter(([_, value]) => value !== undefined)
+      );
+      const dreamData = {
+        ...cleanDreamData,
+        userId,
+        createdAt: dream.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      await setDoc(doc(db, 'dreams', dream.id), dreamData);
+    } catch (error) {
+      console.error('❌ Error saving dream with specific ID to Firestore:', error);
+      throw error;
+    }
+  }
+
   cleanup(): void {
     this.unsubscribes.forEach(unsubscribe => unsubscribe());
     this.unsubscribes = [];
