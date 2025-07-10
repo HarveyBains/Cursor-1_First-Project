@@ -12,7 +12,6 @@ const TagBreadcrumbs: React.FC<TagBreadcrumbsProps> = ({ activeTagFilter, setAct
   return (
     <div className="mb-4 flex flex-wrap items-center justify-between text-sm text-muted-foreground">
       <div className="flex flex-wrap items-center gap-1">
-        <span className="font-medium">Tags:</span>
         <button
           onClick={() => setActiveTagFilter(null)}
           className={`px-2 py-1 rounded-md transition-colors ${!activeTagFilter ? 'bg-muted text-foreground' : 'hover:bg-muted hover:text-foreground'}`}

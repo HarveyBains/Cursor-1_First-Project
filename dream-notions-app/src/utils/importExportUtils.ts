@@ -91,7 +91,7 @@ export const parseImportMarkdown = (markdownText: string): DreamEntry[] => {
         timestamp,
         description: description || undefined,
         isFavorite: false,
-        tags: tags.length > 0 ? tags : ['default'], // Ensure at least default tag
+        tags: tags.length > 0 ? tags : ['Default'], // Ensure at least Default tag
         icon: 'neutral',
         displayOrder: dreams.length * 1000
       } as DreamEntry);
@@ -171,7 +171,7 @@ export const exportDreams = async (dreams: DreamEntry[]): Promise<void> => {
     const yearShort = String(date.getFullYear()).slice(-2); // Get last two digits of year
 
     const formattedDateDDMMYY = `${day}/${month}/${yearShort}`;
-    const tags = dream.tags && dream.tags.length > 0 ? dream.tags.join(',') : 'default'; // Ensure default on export
+    const tags = dream.tags && dream.tags.length > 0 ? dream.tags.join(',') : 'Default'; // Ensure Default on export
 
     // Format: DD/MM/YY - Dream Title, Tags:Tag1,Tag2,Tag3\nDescription\n---
     return `${formattedDateDDMMYY} - ${dream.name}, Tags:${tags}\n${dream.description || ''}\n---`;

@@ -187,27 +187,26 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-card p-6 rounded-lg shadow-xl w-full max-w-md border border-border">
-        <h2 className="text-xl mb-4 text-foreground">{dreamToEdit ? 'Edit Dream' : 'Add New Dream'}</h2>
+        <h2 className="text-xl mb-4 text-foreground text-center">{dreamToEdit ? 'Edit Dream' : 'Add New Dream'}</h2>
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label htmlFor="dreamDate" className="block text-xs text-foreground mb-1">Date</label>
             <input
               type="date"
               id="dreamDate"
-              className="w-full p-2 border border-border rounded-md bg-background text-foreground text-xs"
+              className="w-full p-2 border border-border rounded-md bg-background text-foreground text-sm"
               value={dreamDate}
               onChange={(e) => setDreamDate(e.target.value)}
               required
             />
           </div>
           <div className="mb-4">
-            <label htmlFor="name" className="block text-xs text-foreground mb-1">Dream Title</label>
             <input
               type="text"
               id="name"
-              className="w-full p-2 border border-border rounded-md bg-background text-foreground text-xs"
+              className="w-full p-2 border border-border rounded-md bg-background text-foreground text-sm"
               value={name}
               onChange={handleNameChange}
+              placeholder="Dream Title"
               required
             />
             {nameSuggestions.length > 0 && (
@@ -225,17 +224,16 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
             )}
           </div>
           <div className="mb-4">
-            <label htmlFor="description" className="block text-xs text-foreground mb-1">Description</label>
             <textarea
               id="description"
-              rows={4}
-              className="w-full p-2 border border-border rounded-md bg-background text-foreground text-xs"
+              rows={12}
+              className="w-full p-2 border border-border rounded-md bg-background text-foreground text-sm"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+              placeholder="Description"
             ></textarea>
           </div>
           <div className="mb-4">
-            <label className="block text-xs text-foreground mb-1">Icon Color</label>
             <div className="flex justify-between">
               <div
                 className={`w-8 h-8 rounded-full cursor-pointer border-2 ${iconColor === '' ? 'border-primary' : 'border-transparent'} flex items-center justify-center text-muted-foreground`}
@@ -257,7 +255,6 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
             </div>
           </div>
           <div className="mb-6">
-            <label className="block text-xs text-foreground mb-1">Tags</label>
             {/* Current Tags Display */}
             <div className="min-h-[2.5rem] p-2 border border-border rounded-md bg-background mb-2 flex flex-wrap gap-1">
               {tags.split(',').map(tag => tag.trim()).filter(tag => tag !== '').map((tag, index) => (
@@ -288,7 +285,7 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
             {/* Add New Tag Input with Hierarchical Autocomplete */}
             <input
               type="text"
-              className="w-full p-2 border border-border rounded-md bg-background text-foreground text-xs"
+              className="w-full p-2 border border-border rounded-md bg-background text-foreground text-sm"
               value={newTagInput}
               onChange={(e) => {
                 const inputValue = e.target.value;
@@ -381,7 +378,7 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
               type="submit"
               className="px-4 py-2 rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90"
             >
-              Save Dream
+              Save
             </button>
           </div>
         </form>

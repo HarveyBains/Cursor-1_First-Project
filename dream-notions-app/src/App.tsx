@@ -6,6 +6,7 @@ import DeleteConfirmDialog from './components/DeleteConfirmDialog';
 import RenameTagDialog from './components/RenameTagDialog';
 import TagBreadcrumbs from './components/TagBreadcrumbs';
 import NotepadDialog from './components/NotepadDialog';
+import ExportDialog from './components/ExportDialog';
 import { DragDropProvider } from './components/DragDropProvider';
 import { saveToLocalStorage, loadFromLocalStorage } from './utils/localStorageUtils';
 import { exportDreams } from './utils/importExportUtils';
@@ -98,6 +99,7 @@ function App() {
   const [dreamToDeleteId, setDreamToDeleteId] = useState<string | null>(null);
   const [showDeleteAllConfirmDialog, setShowDeleteAllConfirmDialog] = useState(false);
   const [showNotepadDialog, setShowNotepadDialog] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
   const [version, setVersion] = useState(() => {
     return loadFromLocalStorage('app_version', 'v13.0.2');
   });
@@ -186,6 +188,17 @@ function App() {
     console.log('========================');
     
     return result;
+  }, [dreams]);
+
+  // Count of dreams from today
+  const todaysCount = useMemo(() => {
+    const today = new Date().toDateString();
+    return dreams.filter(dream => new Date(dream.timestamp).toDateString() === today).length;
+  }, [dreams]);
+
+  // Count of favorite dreams
+  const favoritesCount = useMemo(() => {
+    return dreams.filter(dream => dream.isFavorite).length;
   }, [dreams]);
 
   // Debug logging function
@@ -304,7 +317,26 @@ function App() {
       }
     });
     
-    const result = Array.from(rootTags).sort();
+    // Calculate tag usage frequency for sorting
+    const tagUsageCount = new Map<string, number>();
+    Array.from(rootTags).forEach(tag => {
+      const count = dreams.filter(dream => 
+        dream.tags?.some(dreamTag => 
+          dreamTag === tag || dreamTag.startsWith(tag + '/')
+        )
+      ).length;
+      tagUsageCount.set(tag, count);
+    });
+    
+    // Sort by frequency (descending), then alphabetically
+    const result = Array.from(rootTags).sort((a, b) => {
+      const countA = tagUsageCount.get(a) || 0;
+      const countB = tagUsageCount.get(b) || 0;
+      if (countA !== countB) {
+        return countB - countA; // Most frequent first
+      }
+      return a.localeCompare(b); // Alphabetical for same frequency
+    });
     console.log('=== TAG FILTERING DEBUG (INFINITE HIERARCHY) ===');
     console.log('All input tags:', tags);
     console.log('All hierarchy levels found:', Array.from(allHierarchyLevels).sort());
@@ -354,7 +386,26 @@ function App() {
       }
     });
     
-    const result = Array.from(children).sort();
+    // Calculate tag usage frequency for child tags
+    const tagUsageCount = new Map<string, number>();
+    Array.from(children).forEach(tag => {
+      const count = dreams.filter(dream => 
+        dream.tags?.some(dreamTag => 
+          dreamTag === tag || dreamTag.startsWith(tag + '/')
+        )
+      ).length;
+      tagUsageCount.set(tag, count);
+    });
+    
+    // Sort by frequency (descending), then alphabetically
+    const result = Array.from(children).sort((a, b) => {
+      const countA = tagUsageCount.get(a) || 0;
+      const countB = tagUsageCount.get(b) || 0;
+      if (countA !== countB) {
+        return countB - countA; // Most frequent first
+      }
+      return a.localeCompare(b); // Alphabetical for same frequency
+    });
     console.log(`Children for "${parentTag}" (level ${parentLevel}):`, result);
     return result;
   };
@@ -766,38 +817,27 @@ function App() {
 
 
   const handleExportDreams = () => {
+    setShowExportDialog(true);
+  };
+
+  const handleExportConfirm = (count: number | null | 'today') => {
     // Ensure exported dreams are always sorted newest first
     const allDreamsToExport = [...filteredDreams].sort((a, b) => b.timestamp - a.timestamp);
     
-    // Prompt user for number of records to export
-    const totalRecords = allDreamsToExport.length;
-    const userInput = prompt(`How many records would you like to export? (Total available: ${totalRecords})\n\nLeave empty to export all records:`);
-    
-    // Handle user input
-    if (userInput === null) {
-      // User cancelled the dialog
-      return;
-    }
-    
     let recordsToExport = allDreamsToExport;
     
-    if (userInput.trim() !== '') {
-      const requestedCount = parseInt(userInput.trim(), 10);
-      
-      if (isNaN(requestedCount) || requestedCount <= 0) {
-        alert('Please enter a valid positive number.');
-        return;
-      }
-      
-      if (requestedCount > totalRecords) {
-        alert(`You only have ${totalRecords} records available. Exporting all ${totalRecords} records.`);
-        recordsToExport = allDreamsToExport;
-      } else {
-        recordsToExport = allDreamsToExport.slice(0, requestedCount);
-      }
+    if (count === 'today') {
+      // Export only today's dreams
+      const today = new Date().toDateString();
+      recordsToExport = allDreamsToExport.filter(dream => 
+        new Date(dream.timestamp).toDateString() === today
+      );
+    } else if (typeof count === 'number') {
+      recordsToExport = allDreamsToExport.slice(0, count);
     }
     
     exportDreams(recordsToExport);
+    setShowExportDialog(false);
   };
 
   const handleSaveNotepad = (tabs: Tab[]) => {
@@ -825,6 +865,15 @@ function App() {
       if (prevOrder === 'oldest') return 'manual';
       return 'newest'; // Fallback
     });
+  };
+
+  const getSortOrderLabel = (order: string) => {
+    switch (order) {
+      case 'newest': return 'Latest';
+      case 'oldest': return 'Oldest First';
+      case 'manual': return 'Manual Sort';
+      default: return 'Latest';
+    }
   };
 
   const moveDream = useCallback((dragIndex: number, hoverIndex: number) => {
@@ -1634,18 +1683,25 @@ function App() {
                   title="Debug Panel"
                 >
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                    <path d="M12 4.5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm-3 6c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm6 0c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm-3 6c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5z"/>
+                    <path d="M12 9c-1.7 0-3 1.3-3 3s1.3 3 3 3 3-1.3 3-3-1.3-3-3-3zm7-7l-2 2c1.5 1.5 1.5 4 0 5.5l2 2c2.8-2.8 2.8-7.2 0-10L19 2zm-14 0c-2.8 2.8-2.8 7.2 0 10l2-2c-1.5-1.5-1.5-4 0-5.5L5 2zm14 14l-2-2c-1.5 1.5-4 1.5-5.5 0l-2 2c2.8 2.8 7.2 2.8 10 0z"/>
+                    <circle cx="6" cy="6" r="1"/>
+                    <circle cx="18" cy="6" r="1"/>
+                    <circle cx="6" cy="18" r="1"/>
+                    <circle cx="18" cy="18" r="1"/>
+                    <path d="M9 3l1.5 1.5L12 3l1.5 1.5L15 3M9 21l1.5-1.5L12 21l1.5-1.5L15 21M3 9l1.5 1.5L3 12l1.5 1.5L3 15M21 9l-1.5 1.5L21 12l-1.5 1.5L21 15"/>
                   </svg>
                   <span className="hidden sm:inline">Debug</span>
                 </button>
               </div>
-              {/* Add Notion Button */}
+              {/* Add Button */}
               <button
                 onClick={() => { setSelectedDream(null); setShowAddDreamForm(true); }}
                 className="px-3 py-2 rounded-lg text-xs transition-colors font-medium flex items-center gap-1.5 border bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
               >
-                Add Notion
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Add
               </button>
             </div>
           </div>
@@ -1661,7 +1717,7 @@ function App() {
                 className={`px-3 py-1 text-xs rounded-full transition-colors flex items-center gap-1.5 ${activeFilter === 'recents' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
               >
                 <span>🕐 Recents</span>
-                <span className="px-1.5 py-0.5 text-xs rounded-full font-medium bg-primary/20 text-primary">{dreams.length}</span>
+                <span className="px-1.5 py-0.5 text-xs rounded-full font-medium bg-primary/20 text-primary">{todaysCount}</span>
               </button>
               {/* Favorites Button */}
               <button
@@ -1669,6 +1725,7 @@ function App() {
                 className={`px-3 py-1 text-xs rounded-full transition-colors flex items-center gap-1.5 ${activeFilter === 'favorites' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
               >
                 <span>Favorites</span>
+                <span className="px-1.5 py-0.5 text-xs rounded-full font-medium bg-primary/20 text-primary">{favoritesCount}</span>
               </button>
               {/* Sort Toggle Button */}
               <button
@@ -1676,7 +1733,7 @@ function App() {
                 className="px-3 py-1 text-xs rounded-full transition-colors flex items-center gap-1.5 bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
               >
                 <span>⋮⋮</span>
-                <span>{sortOrder.charAt(0).toUpperCase() + sortOrder.slice(1)}</span>
+                <span>{getSortOrderLabel(sortOrder)}</span>
               </button>
             </div>
           </div>
@@ -1821,6 +1878,15 @@ function App() {
         onClose={() => setShowNotepadDialog(false)}
         onSave={handleSaveNotepad}
         initialTabs={notepadTabs}
+      />
+
+      {/* Export Dialog */}
+      <ExportDialog
+        isOpen={showExportDialog}
+        onClose={() => setShowExportDialog(false)}
+        onExport={handleExportConfirm}
+        totalRecords={filteredDreams.length}
+        todayCount={todaysCount}
       />
 
       {/* Custom Context Menu */}

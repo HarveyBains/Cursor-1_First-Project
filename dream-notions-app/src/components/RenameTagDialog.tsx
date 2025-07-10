@@ -37,11 +37,10 @@ const RenameTagDialog: React.FC<RenameTagDialogProps> = ({ isOpen, onClose, onRe
             <input
               type="text"
               id="newTagName"
-              className="w-full p-2 border border-border rounded-md bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full p-2 border border-border rounded-md bg-input text-white focus:outline-none focus:ring-2 focus:ring-primary"
               value={newTagName}
               onChange={(e) => setNewTagName(e.target.value)}
               required
-              style={{ color: 'black' }}
             />
           </div>
           <div className="flex justify-end gap-3">
