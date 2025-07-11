@@ -391,73 +391,46 @@ export class FirestoreService {
   }
 
   // Notepad sync methods
-  async saveNotepadTabs(tabs: any[], userId: string): Promise<void> {
+  async saveNotepadContent(content: string, userId: string): Promise<void> {
     try {
-      console.log('📝 Saving notepad tabs to Firebase...');
-      console.log(`📝 User ID: ${userId}`);
-      console.log(`📝 Tabs count: ${tabs.length}`);
-      console.log(`📝 Tabs data:`, tabs);
-      
       const notepadRef = doc(db, 'notepads', userId);
-      
-      // Use setDoc with merge option to create or update
-      await setDoc(notepadRef, {
-        userId: userId,
-        tabs: tabs,
+      await setDoc(notepadRef, { 
+        content,
         updatedAt: new Date().toISOString()
-      }, { merge: true });
-      
-      console.log('✅ Notepad tabs saved successfully to Firebase');
+      });
+      console.log('✅ Notepad content saved successfully');
     } catch (error) {
-      console.error('❌ Error saving notepad tabs:', error);
-      if (error instanceof Error) {
-        console.error('Error message:', error.message);
-      }
-      if (error && typeof error === 'object' && 'code' in error) {
-        console.error('Error code:', error.code);
-      }
+      console.error('❌ Error saving notepad content:', error);
       throw error;
     }
   }
 
-  async getNotepadTabs(userId: string): Promise<any[]> {
+  async getNotepadContent(userId: string): Promise<string> {
     try {
-      console.log('📝 Loading notepad tabs from Firebase...');
       const notepadRef = doc(db, 'notepads', userId);
       const docSnapshot = await getDoc(notepadRef);
-      
       if (docSnapshot.exists()) {
-        const data = docSnapshot.data();
-        console.log('✅ Notepad tabs loaded successfully');
-        return data.tabs || [];
+        return docSnapshot.data().content || '';
       } else {
-        console.log('📝 No notepad data found for user');
-        return [];
+        return '';
       }
     } catch (error) {
-      console.error('❌ Error loading notepad tabs:', error);
+      console.error('❌ Error loading notepad content:', error);
       throw error;
     }
   }
 
-  subscribeToNotepadTabs(userId: string, callback: (data: any) => void): Unsubscribe {
-    console.log(`📝 Setting up notepad subscription for user: ${userId}`);
+  subscribeToNotepadContent(userId: string, callback: (content: string) => void): Unsubscribe {
     const notepadRef = doc(db, 'notepads', userId);
-    
     const unsubscribe = onSnapshot(notepadRef, (doc) => {
       if (doc.exists()) {
-        const data = doc.data();
-        console.log('📝 Notepad tabs updated from Firebase:', data);
-        callback(data);
+        callback(doc.data().content || '');
       } else {
-        console.log('📝 No notepad data found in Firebase');
-        callback([]);
+        callback('');
       }
     }, (error) => {
       console.error('❌ Error in notepad subscription:', error);
-      console.error('Error details:', error.code, error.message);
-      // Return empty array on error to prevent crashes
-      callback([]);
+      callback('');
     });
 
     this.unsubscribes.push(unsubscribe);

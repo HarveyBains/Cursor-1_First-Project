@@ -108,30 +108,7 @@ function App() {
     return loadFromLocalStorage('app_subheader', 'Record and organize your dreams');
   });
   const [isEditingSubheader, setIsEditingSubheader] = useState(false);
-  const [notepadTabs, setNotepadTabs] = useState<Tab[]>(() => {
-    // Start with default tabs - Firebase will override them if user is authenticated
-    const defaultTabs = [
-      { id: 'todo', name: 'To Do', content: '', isDeletable: false },
-      { id: 'notes', name: 'Notes', content: '', isDeletable: true }
-    ];
-    
-    // For unauthenticated users, try to load from localStorage
-    const savedTabs = loadFromLocalStorage('notepad_tabs', null);
-    if (savedTabs) {
-      return savedTabs;
-    }
-    
-    // Migration: convert old notepad_content to new tab structure
-    const oldContent = loadFromLocalStorage('notepad_content', '');
-    if (oldContent) {
-      return [
-        { id: 'todo', name: 'To Do', content: oldContent, isDeletable: false },
-        { id: 'notes', name: 'Notes', content: '', isDeletable: true }
-      ];
-    }
-    
-    return defaultTabs;
-  });
+  const [notepadContent, setNotepadContent] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(() => {
     // Initialize from localStorage or default to true (dark mode)
     const savedTheme = localStorage.getItem('theme');
@@ -450,21 +427,18 @@ function App() {
         setDreams(cleanDreamTagsAndColors(firestoreDreams));
       });
 
-      notepadUnsubscribe = firestoreService.subscribeToNotepadTabs(user.uid, (data) => {
-        if (data && data.tabs) {
-          addDebugLog(`📥 Received ${data.tabs.length} notepad tabs from Firebase.`);
-          setNotepadTabs(data.tabs);
-        } else {
-          addDebugLog('📥 Received empty notepad data from Firebase.');
-          setNotepadTabs([]);
-        }
+      notepadUnsubscribe = firestoreService.subscribeToNotepadContent(user.uid, (content) => {
+        addDebugLog(`📥 Received notepad content from Firebase.`);
+        setNotepadContent(content);
       });
 
     } else {
-      // User is signed out, clear local state
-      addDebugLog('🔥 User signed out, clearing local data.');
-      setDreams([]);
-      setNotepadTabs([]);
+      // User is signed out, load from localStorage
+      addDebugLog('🔥 User signed out, loading from localStorage.');
+      const localDreams = loadFromLocalStorage('dreams_local', []);
+      setDreams(cleanDreamTagsAndColors(localDreams));
+      const localNotepad = loadFromLocalStorage('notepad_content', '');
+      setNotepadContent(localNotepad);
     }
 
     return () => {
@@ -496,10 +470,10 @@ function App() {
   useEffect(() => {
     if (!user) {
       // For unauthenticated users, save to the primary localStorage key
-      saveToLocalStorage('notepad_tabs', notepadTabs);
+      saveToLocalStorage('notepad_content', notepadContent);
     }
     // For authenticated users, data is saved explicitly in handleSaveNotepad
-  }, [notepadTabs, user]);
+  }, [notepadContent, user]);
 
   const handleImportDreams = async (importedDreams: DreamEntry[]) => {
     const cleanedDreams = cleanDreamTagsAndColors(importedDreams);
@@ -1732,8 +1706,19 @@ function App() {
       <NotepadDialog
         isOpen={showNotepadDialog}
         onClose={() => setShowNotepadDialog(false)}
-        onSave={handleSaveNotepad}
-        initialTabs={notepadTabs}
+        onSave={(content) => {
+          setNotepadContent(content);
+          if (user) {
+            firestoreService.saveNotepadContent(content, user.uid);
+          }
+        }}
+        onDelete={() => {
+          setNotepadContent('');
+          if (user) {
+            firestoreService.saveNotepadContent('', user.uid);
+          }
+        }}
+        initialContent={notepadContent}
       />
 
       {/* Export Dialog */}
