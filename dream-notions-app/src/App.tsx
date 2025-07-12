@@ -1241,182 +1241,18 @@ function App() {
                 Debug Panel
               </h3>
               <div className="flex items-center gap-2">
-                {user && (
-                  <>
-                    <button
-                      onClick={handleRepairDreams}
-                      className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
-                    >
-                      Repair
-                    </button>
-                    <button
-                      onClick={handleDiagnoseDreams}
-                      className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
-                    >
-                      Diagnose
-                    </button>
-                    <button
-                      onClick={handleTestDelete}
-                      className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
-                    >
-                      Test Delete
-                    </button>
-                    <button
-                      onClick={handleTestFirebase}
-                      className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
-                    >
-                      Test Firebase
-                    </button>
-                    <button
-                      onClick={handleTestNotepadSync}
-                      className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
-                    >
-                      Test Notepad Sync
-                    </button>
-                    <button
-                      onClick={handleForceNotepadSync}
-                      className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
-                    >
-                      Force Notepad Sync
-                    </button>
-                    <button
-                      onClick={handleTestNotepadData}
-                      className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
-                    >
-                      Test Notepad Data
-                    </button>
-                    <button
-                      onClick={handleCheckFirebaseNotepad}
-                      className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
-                    >
-                      Check Firebase Notepad
-                    </button>
-                    <button
-                      onClick={handleTestCrossDeviceSync}
-                      className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
-                    >
-                      Test Cross-Device Sync
-                    </button>
-                    <button
-                      onClick={handleRestoreFromBackup}
-                      className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
-                    >
-                      Restore From Backup
-                    </button>
-                    <button
-                      onClick={() => {
-                        addDebugLog('Current local state:');
-                        console.log('Dreams:', dreams);
-                        console.log('Notepad Tabs:', notepadTabs);
-                      }}
-                      className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
-                    >
-                      Log Local State
-                    </button>
-                    <button
-                      onClick={async () => {
-                        if (user) {
-                          const newDream = {
-                            name: 'Test Dream',
-                            content: 'This is a test dream.',
-                            tags: ['test'],
-                            timestamp: Date.now(),
-                            isFavorite: false,
-                          } as DreamEntry;
-                          await firestoreService.saveDream(newDream, user.uid);
-                          addDebugLog('Added test dream to Firebase.');
-                        }
-                      }}
-                      className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
-                    >
-                      Simulate Add
-                    </button>
-                    <button
-                      onClick={async () => {
-                        if (user && dreams.length > 0) {
-                          const dreamToUpdate = dreams[0];
-                          const updatedDream = { ...dreamToUpdate, name: `Updated Dream ${Date.now()}` };
-                          await firestoreService.updateDream(dreamToUpdate.id, updatedDream);
-                          addDebugLog('Updated test dream in Firebase.');
-                        }
-                      }}
-                      className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
-                    >
-                      Simulate Update
-                    </button>
-                    <button
-                      onClick={async () => {
-                        if (user && dreams.length > 0) {
-                          const dreamToDelete = dreams[0];
-                          await firestoreService.deleteDream(dreamToDelete.id);
-                          addDebugLog('Deleted test dream from Firebase.');
-                        }
-                      }}
-                      className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
-                    >
-                      Simulate Delete
-                    </button>
-                    {/* Delete All Dreams button for legacy cleanup */}
-                    <button
-                      onClick={async () => {
-                        if (window.confirm('Are you sure you want to delete ALL your dreams from Firebase? This cannot be undone.')) {
-                          await firestoreService.deleteAllUserDreams(user.uid);
-                          addDebugLog('🗑️ All dreams deleted from Firebase for this user.');
-                        }
-                      }}
-                      className="px-2 py-1 text-xs rounded font-medium transition-colors border border-red-500 text-red-500 hover:bg-red-500/10 hover:text-red-600"
-                    >
-                      Delete All Dreams (Firebase)
-                    </button>
-                  </>
-                )}
-                {!user && (
-                  <>
-                    <button
-                      onClick={signInWithGoogle}
-                      className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
-                    >
-                      Sign In (Popup)
-                    </button>
-                    <button
-                      onClick={signInWithGoogleRedirect}
-                      className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
-                    >
-                      Sign In (Redirect)
-                    </button>
-                    <button
-                      onClick={handleTroubleshootAuth}
-                      className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80"
-                    >
-                      Troubleshoot Auth
-                    </button>
-                    {/* Delete All Dreams (Local) button for localStorage cleanup */}
-                    <button
-                      onClick={() => {
-                        if (window.confirm('Are you sure you want to delete ALL your dreams from localStorage? This cannot be undone.')) {
-                          setDreams([]);
-                          localStorage.removeItem('dreams_local');
-                          addDebugLog('🗑️ All dreams deleted from localStorage.');
-                        }
-                      }}
-                      className="px-2 py-1 text-xs rounded font-medium transition-colors border border-red-500 text-red-500 hover:bg-red-500/10 hover:text-red-600"
-                    >
-                      Delete All Dreams (Local)
-                    </button>
-                  </>
-                )}
+                <button
+                  onClick={() => setDebugLogs([])}
+                  className="px-2 py-1 text-xs rounded font-medium transition-colors border border-primary text-primary hover:bg-primary/10 hover:text-primary-foreground"
+                >
+                  Clear
+                </button>
                 <button
                   onClick={copyDebugToClipboard}
                   className="px-2 py-1 text-xs rounded font-medium transition-colors border border-primary text-primary hover:bg-primary/10 hover:text-primary-foreground"
                   title="Copy debug info to clipboard"
                 >
                   📋 Copy
-                </button>
-                <button
-                  onClick={() => setDebugLogs([])}
-                  className="px-2 py-1 text-xs rounded font-medium transition-colors border border-primary text-primary hover:bg-primary/10 hover:text-primary-foreground"
-                >
-                  Clear
                 </button>
                 <button
                   onClick={() => setShowDebugPanel(false)}
