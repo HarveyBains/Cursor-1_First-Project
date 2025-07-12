@@ -438,7 +438,33 @@ function App() {
       const localDreams = loadFromLocalStorage('dreams_local', []);
       setDreams(cleanDreamTagsAndColors(localDreams));
       const localNotepad = loadFromLocalStorage('notepad_content', '');
-      setNotepadContent(localNotepad);
+      // Set default template if notepad is empty
+      const defaultTemplate = `## Todo
+- Sample task 1
+- Sample task 2
+
+## Que
+- Future consideration 1
+- Future consideration 2
+
+## Done
+- Completed task 1
+- Completed task 2
+
+## Inbox
+- Random thought 1
+- Random thought 2
+- Ideas go here before being promoted to Todo
+
+# Usage
+- Use 📈 Promote to move any line to bottom of Todo
+- Use 📉 Demote to move lines from Todo back to top of Inbox  
+- Use ✅ Done to move any line to top of Done section
+- Use ⬆️⬇️ Move Up/Down to reorder within sections
+- All tasks automatically get hyphen prefixes
+- Blank lines are automatically added above ## headings when saving`;
+      
+      setNotepadContent(localNotepad || defaultTemplate);
     }
 
     return () => {
