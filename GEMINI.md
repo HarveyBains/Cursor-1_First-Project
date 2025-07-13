@@ -1,3 +1,3 @@
 # Gemini Instructions
 
-- Always run `npm run build` to check for errors locally before asking the user to check the website.
+Always refer to the Claude.md for full project context awareness
