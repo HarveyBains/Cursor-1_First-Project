@@ -50,14 +50,6 @@ This document describes the current implemented features and functionalities of 
 
 ## 4. Outstanding Features / Next Steps
 
--   Full implementation of theme toggle functionality.
--   Implementation of user authentication (Firebase).
--   Integration with Firestore for cloud data synchronization.
--   Full implementation of CRUD operations for dreams (Add, Edit, Delete) with UI interaction.
--   Implementation of advanced filtering, sorting, and search functionalities.
--   Implementation of the List Planner feature.
--   Implementation of the Export functionality.
--   Mobile responsiveness and touch optimizations.
--   Performance optimizations beyond initial setup.
+
 
 This PRD will be updated as new features are implemented and existing ones are refined.
