@@ -49,7 +49,8 @@ This document describes the current implemented features and functionalities of 
     -   Data persists across browser sessions and application restarts.
 
 ## 4. Outstanding Features / Next Steps
-
+- Add a filter into the debug log.
+- Accomplish the manual ordering of records by tweaking the time element for the records date. If a record date doesn't have time, assume that's midnight. So if I want one record to be at the top for the given date, accomplish this by adjusting its time to be the latest for that date.
 
 
 This PRD will be updated as new features are implemented and existing ones are refined.

@@ -79,7 +79,8 @@ export class FirestoreService {
 
   async updateDream(dreamId: string, updates: Partial<DreamEntry>): Promise<void> {
     try {
-      const dreamRef = doc(db, 'dreams', dreamId);
+      console.log('🔄 Attempting to update dream with ID:', dreamId);
+      
       const updateData = {
         ...updates,
         iconColor: updates.iconColor || '#6B7280',
@@ -91,8 +92,44 @@ export class FirestoreService {
         Object.entries(updateData).filter(([_, value]) => value !== undefined)
       );
 
-      await updateDoc(dreamRef, cleanUpdateData);
-      console.log('✅ Dream updated successfully');
+      // Strategy 1: Try to update using the ID as a Firebase document ID
+      try {
+        const dreamRef = doc(db, 'dreams', dreamId);
+        
+        // Check if document exists first
+        const docSnapshot = await getDoc(dreamRef);
+        if (docSnapshot.exists()) {
+          await updateDoc(dreamRef, cleanUpdateData);
+          console.log('✅ Dream updated successfully using direct document ID');
+          return;
+        } else {
+          console.log('⚠️ Document not found with direct ID, trying client ID lookup...');
+        }
+      } catch (error) {
+        console.log('❌ Strategy 1 failed:', error);
+      }
+      
+      // Strategy 2: Try to find by client ID field and update
+      try {
+        const dreamsRef = collection(db, 'dreams');
+        const q = query(dreamsRef, where('id', '==', dreamId));
+        const querySnapshot = await getDocs(q);
+        
+        if (!querySnapshot.empty) {
+          const actualDoc = querySnapshot.docs[0];
+          await updateDoc(actualDoc.ref, cleanUpdateData);
+          console.log('✅ Dream updated successfully using client ID lookup');
+          return;
+        } else {
+          console.log('❌ No dream found with client ID:', dreamId);
+        }
+      } catch (error) {
+        console.log('❌ Strategy 2 failed:', error);
+      }
+      
+      // If all strategies fail, throw an error
+      throw new Error(`No dream found with ID: ${dreamId}. Unable to update.`);
+      
     } catch (error) {
       console.error('❌ Error updating dream:', error);
       throw error;

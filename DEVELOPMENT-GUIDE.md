@@ -136,7 +136,16 @@
 1. **Before making changes**: Understand current state and requirements
 2. **During development**: Test frequently with `npm run build`
 3. **After changes**: Verify no TypeScript errors and build success
-4. **Before asking user**: Ensure all issues are resolved
+4. **UI Change Testing** (Optional - Enable/Disable as needed):
+   - Run `npm run dev` to verify startup without web server errors
+   - Run `npm run build` to check for TypeScript/build errors
+4.1 Record Testing - This step is optional. Don't do it unless the user specifically says so.
+   - Create a test dream record to verify UI functionality
+   - Edit the test record to check edit functionality works correctly
+   - Delete the test record to verify deletion works properly
+   - Check debug logs for any errors during CRUD operations
+
+5. **Before asking user**: Ensure all issues are resolved
 
 ## 🚀 Deployment Notes
 
@@ -147,6 +156,20 @@
 
 ---
 
-**Last Updated**: Current session
+**Last Updated**: 2025-07-13 - Updated Development Workflow with UI testing guidelines
 **Status**: Multi-tab notepad implementation in progress with TypeScript errors
-**Priority**: Fix build errors before proceeding with features 
+**Priority**: Fix build errors before proceeding with features
+
+## 🔒 Persistent Workflow Guidelines
+
+**IMPORTANT**: The Development Workflow (Section 📝) contains critical testing requirements:
+
+- **Step 4**: UI Change Testing is ALWAYS required for UI modifications
+  - `npm run dev` startup verification
+  - `npm run build` error checking
+  
+- **Step 4.1**: Record Testing is OPTIONAL and should ONLY be performed when explicitly requested by the user
+  - Do NOT perform CRUD testing (create/edit/delete records) by default
+  - Only execute when user specifically asks for comprehensive record testing
+
+These guidelines are persistent and should be followed in all future development sessions. 
