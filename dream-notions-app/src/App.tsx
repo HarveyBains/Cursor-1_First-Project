@@ -113,7 +113,7 @@ function App() {
     return savedTheme ? JSON.parse(savedTheme) : true;
   });
   const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'favorites', 'recents'
-  const [sortOrder, setSortOrder] = useState('newest'); // 'manual', 'newest', 'oldest'
+  const [sortOrder, setSortOrder] = useState('newest'); // 'newest', 'oldest' - removed 'manual'
   const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null);
   
   // Debug panel state
@@ -123,6 +123,40 @@ function App() {
   const [showRenameTagDialog, setShowRenameTagDialog] = useState(false);
   const [tagToRename, setTagToRename] = useState<string | null>(null);
   const [debugPanelOpen, setDebugPanelOpen] = useState(false); // closed by default
+
+  // Debug panel position state
+  const [debugPanelPos, setDebugPanelPos] = useState({ top: 80, left: 80 });
+  const [dragging, setDragging] = useState(false);
+  const dragOffset = useRef({ x: 0, y: 0 });
+
+  // Mouse event handlers for dragging
+  const handleDebugPanelMouseDown = (e: React.MouseEvent) => {
+    setDragging(true);
+    dragOffset.current = {
+      x: e.clientX - debugPanelPos.left,
+      y: e.clientY - debugPanelPos.top,
+    };
+    document.body.style.userSelect = 'none';
+  };
+  useEffect(() => {
+    if (!dragging) return;
+    const handleMouseMove = (e: MouseEvent) => {
+      setDebugPanelPos(pos => ({
+        top: Math.max(0, e.clientY - dragOffset.current.y),
+        left: Math.max(0, e.clientX - dragOffset.current.x),
+      }));
+    };
+    const handleMouseUp = () => {
+      setDragging(false);
+      document.body.style.userSelect = '';
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [dragging]);
 
   // Add notepadTabs state and setter
   const [notepadTabs, setNotepadTabs] = useState<Tab[]>(() => {
@@ -785,9 +819,7 @@ function App() {
 
   const toggleSortOrder = () => {
     setSortOrder(prevOrder => {
-      if (prevOrder === 'manual') return 'newest';
       if (prevOrder === 'newest') return 'oldest';
-      if (prevOrder === 'oldest') return 'manual';
       return 'newest'; // Fallback
     });
   };
@@ -796,7 +828,6 @@ function App() {
     switch (order) {
       case 'newest': return 'Latest';
       case 'oldest': return 'Oldest First';
-      case 'manual': return 'Manual Sort';
       default: return 'Latest';
     }
   };
@@ -835,8 +866,6 @@ function App() {
         filteredList.sort((a, b) => b.timestamp - a.timestamp);
       } else if (sortOrder === 'oldest') {
         filteredList.sort((a, b) => a.timestamp - b.timestamp);
-      } else if (sortOrder === 'manual') {
-        filteredList.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
       }
 
       // Check if drag and hover items are within the filtered list bounds
@@ -847,17 +876,22 @@ function App() {
       const draggedDream = filteredList[dragIndex];
       const targetDream = filteredList[hoverIndex];
 
+      // Only allow moving within the same date group
+      const draggedDate = new Date(draggedDream.timestamp).toDateString();
+      const targetDate = new Date(targetDream.timestamp).toDateString();
+      if (draggedDate !== targetDate) {
+        return prevDreams; // Do nothing if not in the same date group
+      }
+
       // Simple reordering: move item from dragIndex to hoverIndex
       const reorderedList = [...filteredList];
       const [removed] = reorderedList.splice(dragIndex, 1);
       reorderedList.splice(hoverIndex, 0, removed);
 
-      // Assign new timestamps to reflect the new order
-      // Use a base timestamp and increment by minutes to maintain order
-      const now = Date.now();
+      // Use displayOrder to maintain custom order within the date group
       const updatedList = reorderedList.map((dream, index) => ({
         ...dream,
-        timestamp: now - (index * 60 * 1000) // Subtract minutes so newest items appear first
+        displayOrder: index * 1000 // Use displayOrder instead of modifying timestamp
       }));
 
       // Create the new dreams array, replacing the items that were reordered
@@ -906,29 +940,35 @@ function App() {
       );
     }
 
-    if (sortOrder === 'newest') {
-      currentDreams.sort((a, b) => b.timestamp - a.timestamp);
-    } else if (sortOrder === 'oldest') {
-      currentDreams.sort((a, b) => a.timestamp - b.timestamp);
-    } else if (sortOrder === 'manual') {
-      // For manual sorting, first sort by date (newest first), then by time within each date group
-      currentDreams.sort((a, b) => {
-        const dateA = new Date(a.timestamp);
-        const dateB = new Date(b.timestamp);
-        
-        // First compare dates (newest date first)
-        const dateOnlyA = new Date(dateA.getFullYear(), dateA.getMonth(), dateA.getDate()).getTime();
-        const dateOnlyB = new Date(dateB.getFullYear(), dateB.getMonth(), dateB.getDate()).getTime();
-        
-        if (dateOnlyA !== dateOnlyB) {
-          return dateOnlyB - dateOnlyA; // Newer dates first
+    // Always group by date, then sort by displayOrder (if set) or timestamp within each group
+    const groupedByDate = new Map<string, DreamEntry[]>();
+    currentDreams.forEach(dream => {
+      const dateKey = new Date(dream.timestamp).toDateString();
+      if (!groupedByDate.has(dateKey)) {
+        groupedByDate.set(dateKey, []);
+      }
+      groupedByDate.get(dateKey)!.push(dream);
+    });
+
+    // Sort date groups (newest or oldest first)
+    const sortedDateKeys = Array.from(groupedByDate.keys()).sort((a, b) => {
+      const dateA = new Date(a).getTime();
+      const dateB = new Date(b).getTime();
+      return sortOrder === 'newest' ? dateB - dateA : dateA - dateB;
+    });
+
+    // Sort within each group by displayOrder (if set) or timestamp
+    const sortedGroups = sortedDateKeys.map(dateKey => {
+      const group = groupedByDate.get(dateKey)!;
+      return group.sort((a, b) => {
+        if (a.displayOrder !== undefined && b.displayOrder !== undefined && a.displayOrder !== b.displayOrder) {
+          return a.displayOrder - b.displayOrder;
         }
-        
-        // Within the same date, sort by time (preserving manual order via timestamp)
-        return a.timestamp - b.timestamp; // Earlier times first within same date
+        return a.timestamp - b.timestamp;
       });
-    }
-    return currentDreams;
+    });
+
+    return sortedGroups.flat();
   }, [dreams, activeFilter, sortOrder, activeTagFilter]);
 
   const handleTestFirebase = async () => {
@@ -1195,19 +1235,36 @@ function App() {
         </div>
       </header>
 
-      {/* Debug Panel Collapsible */}
-      <Collapsible open={debugPanelOpen}>
-        <CollapsibleContent forceMount>
-          <div className="bg-card border border-border shadow-lg rounded-lg max-w-3xl mx-auto mt-6 mb-2 p-4">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-primary">Debug Panel</span>
-                <Badge variant="secondary">{user ? 'Firebase' : 'Local'}</Badge>
-              </div>
-              <Button size="icon" variant="ghost" onClick={() => setDebugPanelOpen(false)} title="Close Debug Panel">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-              </Button>
+      {/* Debug Panel - now as a movable pop-up */}
+      {debugPanelOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            top: debugPanelPos.top,
+            left: debugPanelPos.left,
+            zIndex: 1000,
+            minWidth: 600, // wider minimum
+            maxWidth: 900, // wider maximum
+            width: 700,    // default width
+            boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
+            cursor: dragging ? 'move' : 'default',
+          }}
+          className="bg-card border border-border shadow-lg rounded-lg p-0"
+        >
+          <div
+            className="flex items-center justify-between mb-2 px-4 py-2 rounded-t-lg cursor-move bg-muted border-b border-border"
+            style={{ userSelect: 'none' }}
+            onMouseDown={handleDebugPanelMouseDown}
+          >
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-primary">Debug Panel</span>
+              <Badge variant="secondary">{user ? 'Firebase' : 'Local'}</Badge>
             </div>
+            <Button size="icon" variant="ghost" onClick={() => setDebugPanelOpen(false)} title="Close Debug Panel">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </Button>
+          </div>
+          <div className="px-4 pb-4 pt-2">
             <div className="mb-2 text-xs text-muted-foreground">
               <div>User: {user ? `${user.displayName} (${user.email})` : 'Not signed in'}</div>
               <div>Dreams: {dreams.length}</div>
@@ -1216,7 +1273,7 @@ function App() {
             <Separator className="my-2" />
             <div className="mb-2">
               <div className="font-medium text-sm mb-1">Recent Logs</div>
-              <div className="max-h-40 overflow-y-auto bg-muted/40 rounded p-2 text-xs font-mono">
+              <div className="max-h-40 overflow-y-auto overflow-x-auto bg-muted/40 rounded p-2 text-xs font-mono whitespace-pre">
                 {debugLogs.length === 0 ? (
                   <div className="text-muted-foreground">No logs yet.</div>
                 ) : (
@@ -1227,12 +1284,12 @@ function App() {
               </div>
             </div>
             <div className="flex flex-wrap gap-2 mt-2">
-              <Button size="sm" variant="outline" onClick={copyDebugToClipboard}>Copy Debug Info</Button>
-              <Button size="sm" variant="outline" onClick={() => setDebugLogs([])}>Reset</Button>
+              <Button size="sm" variant="outline" onClick={copyDebugToClipboard}>Copy</Button>
+              <Button size="sm" variant="outline" onClick={() => setDebugLogs([])}>Clear</Button>
             </div>
           </div>
-        </CollapsibleContent>
-      </Collapsible>
+        </div>
+      )}
 
       <main className="max-w-3xl mx-auto px-4 py-6">
         {/* Control Panel */}
@@ -1326,7 +1383,7 @@ function App() {
                 onClick={toggleSortOrder}
                 className="px-3 py-1 text-xs rounded-full transition-colors flex items-center gap-1.5 bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
               >
-                <span>⋮⋮</span>
+                <span>{sortOrder === 'newest' ? '📅↓' : '📅↑'}</span>
                 <span>{getSortOrderLabel(sortOrder)}</span>
               </button>
             </div>
