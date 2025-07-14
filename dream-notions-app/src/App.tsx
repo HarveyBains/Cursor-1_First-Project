@@ -159,10 +159,15 @@ function App() {
     return result;
   }, [dreams]);
 
-  // Count of dreams from today
-  const todaysCount = useMemo(() => {
-    const today = new Date().toDateString();
-    return dreams.filter(dream => new Date(dream.timestamp).toDateString() === today).length;
+  // Count of dreams from latest date
+  const latestDateCount = useMemo(() => {
+    if (dreams.length === 0) return 0;
+    
+    // Find the most recent date in the dreams
+    const sortedDreams = [...dreams].sort((a, b) => b.timestamp - a.timestamp);
+    const latestDate = new Date(sortedDreams[0].timestamp).toDateString();
+    
+    return dreams.filter(dream => new Date(dream.timestamp).toDateString() === latestDate).length;
   }, [dreams]);
 
   // Count of favorite dreams
@@ -732,11 +737,13 @@ function App() {
     let recordsToExport = allDreamsToExport;
     
     if (count === 'today') {
-      // Export only today's dreams
-      const today = new Date().toDateString();
-      recordsToExport = allDreamsToExport.filter(dream => 
-        new Date(dream.timestamp).toDateString() === today
-      );
+      // Export only last day's worth of dreams (most recent date with dream records)
+      if (allDreamsToExport.length > 0) {
+        const latestDate = new Date(allDreamsToExport[0].timestamp).toDateString();
+        recordsToExport = allDreamsToExport.filter(dream => 
+          new Date(dream.timestamp).toDateString() === latestDate
+        );
+      }
     } else if (typeof count === 'number') {
       recordsToExport = allDreamsToExport.slice(0, count);
     }
@@ -797,12 +804,87 @@ function App() {
 
   const moveDream = useCallback((dragIndex: number, hoverIndex: number) => {
     setDreams((prevDreams) => {
-      const newDreams = [...prevDreams];
-      const [draggedDream] = newDreams.splice(dragIndex, 1);
-      newDreams.splice(hoverIndex, 0, draggedDream);
-      return newDreams.map((dream, index) => ({ ...dream, displayOrder: index }));
+      // Get the filtered dreams to work with the correct indices
+      const filteredList = prevDreams.filter(dream => {
+        if (activeFilter === 'favorites') {
+          return dream.isFavorite;
+        } else if (activeFilter === 'recents') {
+          const twentyFourHoursAgo = Date.now() - (24 * 60 * 60 * 1000);
+          return dream.timestamp >= twentyFourHoursAgo;
+        }
+        return true;
+      });
+
+      if (activeTagFilter) {
+        const tagFiltered = filteredList.filter(dream => 
+          dream.tags?.some(tag => tag.startsWith(activeTagFilter))
+        );
+        filteredList.splice(0, filteredList.length, ...tagFiltered);
+      }
+
+      // Sort the filtered list according to current sort order
+      if (sortOrder === 'newest') {
+        filteredList.sort((a, b) => b.timestamp - a.timestamp);
+      } else if (sortOrder === 'oldest') {
+        filteredList.sort((a, b) => a.timestamp - b.timestamp);
+      } else if (sortOrder === 'manual') {
+        filteredList.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+      }
+
+      // Check if drag and hover items are within the filtered list bounds
+      if (dragIndex >= filteredList.length || hoverIndex >= filteredList.length) {
+        return prevDreams;
+      }
+
+      const draggedDream = filteredList[dragIndex];
+      const targetDream = filteredList[hoverIndex];
+
+      // Only allow reordering within the same date group
+      const dragDate = new Date(draggedDream.timestamp).toDateString();
+      const hoverDate = new Date(targetDream.timestamp).toDateString();
+      
+      if (dragDate !== hoverDate) {
+        return prevDreams; // Prevent cross-date reordering
+      }
+
+      // Find all dreams on the same date in the filtered list
+      const sameDateDreams = filteredList.filter(dream => 
+        new Date(dream.timestamp).toDateString() === dragDate
+      );
+
+      // Calculate new time offsets for proper ordering within the date group
+      const baseTimestamp = new Date(draggedDream.timestamp);
+      baseTimestamp.setHours(0, 0, 0, 0); // Set to start of day
+      const baseTime = baseTimestamp.getTime();
+
+      // Find the position within the same-date group
+      const dragIndexInGroup = sameDateDreams.findIndex(d => d.id === draggedDream.id);
+      const hoverIndexInGroup = sameDateDreams.findIndex(d => d.id === targetDream.id);
+
+      if (dragIndexInGroup === -1 || hoverIndexInGroup === -1) {
+        return prevDreams;
+      }
+
+      // Reorder within the same-date group
+      const reorderedGroup = [...sameDateDreams];
+      const [removed] = reorderedGroup.splice(dragIndexInGroup, 1);
+      reorderedGroup.splice(hoverIndexInGroup, 0, removed);
+
+      // Update timestamps to reflect new order (keeping the same date but adjusting time)
+      const updatedGroup = reorderedGroup.map((dream, index) => ({
+        ...dream,
+        timestamp: baseTime + (index * 60 * 1000) // Add minutes to maintain order
+      }));
+
+      // Create the new dreams array with the updated group
+      const newDreams = prevDreams.map(dream => {
+        const updatedDream = updatedGroup.find(d => d.id === dream.id);
+        return updatedDream || dream;
+      });
+
+      return newDreams;
     });
-  }, []);
+  }, [activeFilter, activeTagFilter, sortOrder]);
 
   const handleRenameTag = (oldTag: string, newTag: string) => {
     setDreams(prevDreams => prevDreams.map(dream => ({
@@ -844,7 +926,22 @@ function App() {
     } else if (sortOrder === 'oldest') {
       currentDreams.sort((a, b) => a.timestamp - b.timestamp);
     } else if (sortOrder === 'manual') {
-      currentDreams.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+      // For manual sorting, first sort by date (newest first), then by time within each date group
+      currentDreams.sort((a, b) => {
+        const dateA = new Date(a.timestamp);
+        const dateB = new Date(b.timestamp);
+        
+        // First compare dates (newest date first)
+        const dateOnlyA = new Date(dateA.getFullYear(), dateA.getMonth(), dateA.getDate()).getTime();
+        const dateOnlyB = new Date(dateB.getFullYear(), dateB.getMonth(), dateB.getDate()).getTime();
+        
+        if (dateOnlyA !== dateOnlyB) {
+          return dateOnlyB - dateOnlyA; // Newer dates first
+        }
+        
+        // Within the same date, sort by time (preserving manual order via timestamp)
+        return a.timestamp - b.timestamp; // Earlier times first within same date
+      });
     }
     return currentDreams;
   }, [dreams, activeFilter, sortOrder, activeTagFilter]);
@@ -1424,7 +1521,7 @@ function App() {
                 className={`px-3 py-1 text-xs rounded-full transition-colors flex items-center gap-1.5 ${activeFilter === 'recents' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
               >
                 <span>🕐 Recents</span>
-                <span className="px-1.5 py-0.5 text-xs rounded-full font-medium bg-primary/20 text-primary">{todaysCount}</span>
+                <span className="px-1.5 py-0.5 text-xs rounded-full font-medium bg-primary/20 text-primary">{latestDateCount}</span>
               </button>
               {/* Favorites Button */}
               <button
@@ -1605,7 +1702,7 @@ function App() {
         onClose={() => setShowExportDialog(false)}
         onExport={handleExportConfirm}
         totalRecords={filteredDreams.length}
-        todayCount={todaysCount}
+        latestDateCount={latestDateCount}
       />
 
       {/* Custom Context Menu */}

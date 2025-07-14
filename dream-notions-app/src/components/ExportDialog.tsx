@@ -5,10 +5,10 @@ interface ExportDialogProps {
   onClose: () => void;
   onExport: (count: number | null | 'today') => void;
   totalRecords: number;
-  todayCount: number;
+  latestDateCount: number;
 }
 
-const ExportDialog: React.FC<ExportDialogProps> = ({ isOpen, onClose, onExport, totalRecords, todayCount }) => {
+const ExportDialog: React.FC<ExportDialogProps> = ({ isOpen, onClose, onExport, totalRecords, latestDateCount }) => {
   const [exportType, setExportType] = useState<'today' | 'all' | 'custom'>('today');
   const [customCount, setCustomCount] = useState('');
 
@@ -69,8 +69,8 @@ const ExportDialog: React.FC<ExportDialogProps> = ({ isOpen, onClose, onExport, 
                   className="mr-3 text-primary focus:ring-primary"
                 />
                 <div className="flex-1">
-                  <div className="text-sm font-medium text-foreground">Today's Dreams</div>
-                  <div className="text-xs text-muted-foreground">{todayCount} records from today</div>
+                  <div className="text-sm font-medium text-foreground">Last Day's Dreams</div>
+                  <div className="text-xs text-muted-foreground">{latestDateCount} records from last day with dreams</div>
                 </div>
               </label>
 
