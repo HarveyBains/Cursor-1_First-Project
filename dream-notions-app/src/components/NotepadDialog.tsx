@@ -1,11 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-
-interface Tab {
-  id: string;
-  name: string;
-  content: string;
-  isDeletable: boolean;
-}
+import { type Tab } from '../types/Tab';
 
 interface NotepadDialogProps {
   isOpen: boolean;

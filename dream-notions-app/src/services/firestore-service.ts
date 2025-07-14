@@ -14,6 +14,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase-config';
 import { type DreamEntry } from '../types/DreamEntry';
+import { type Tab } from '../types/Tab';
 
 export class FirestoreService {
   private static instance: FirestoreService;
@@ -490,6 +491,37 @@ export class FirestoreService {
       }
     } catch (error) {
       console.error('❌ Error loading notepad content:', error);
+      throw error;
+    }
+  }
+
+  // Save an array of notepad tabs for a user
+  async saveNotepadTabs(tabs: Tab[], userId: string): Promise<void> {
+    try {
+      const notepadRef = doc(db, 'notepads', userId);
+      await setDoc(notepadRef, {
+        tabs,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+      console.log('✅ Notepad tabs saved successfully');
+    } catch (error) {
+      console.error('❌ Error saving notepad tabs:', error);
+      throw error;
+    }
+  }
+
+  // Retrieve an array of notepad tabs for a user
+  async getNotepadTabs(userId: string): Promise<Tab[]> {
+    try {
+      const notepadRef = doc(db, 'notepads', userId);
+      const docSnapshot = await getDoc(notepadRef);
+      if (docSnapshot.exists()) {
+        return docSnapshot.data().tabs || [];
+      } else {
+        return [];
+      }
+    } catch (error) {
+      console.error('❌ Error loading notepad tabs:', error);
       throw error;
     }
   }

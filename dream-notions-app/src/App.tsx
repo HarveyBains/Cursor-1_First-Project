@@ -18,14 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-
-// Tab interface for notepad
-interface Tab {
-  id: string;
-  name: string;
-  content: string;
-  isDeletable: boolean;
-}
+import { type Tab } from './types/Tab';
 
 // VersionEditor component
 interface VersionEditorProps {
