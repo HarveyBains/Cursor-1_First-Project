@@ -33,3 +33,12 @@
     --color-input: 240 5% 15%;            /* Dark grey for input fields (HSL) */
   }
 }
+
+/* Fade-in animation for WelcomePage and other transitions */
+.animate-fade-in {
+  animation: fadeIn 0.5s ease;
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

@@ -1386,42 +1386,55 @@ function App() {
         {/* Tag Breadcrumbs */}
         <TagBreadcrumbs activeTagFilter={activeTagFilter} setActiveTagFilter={setActiveTagFilter} recordCount={filteredDreams.length} />
 
-        {/* Dream List */}
-        <DragDropProvider>
-          <div>
-            {filteredDreams.map((dream, index) => {
-              const dreamDate = new Date(dream.timestamp).toDateString();
-              const prevDreamDate = index > 0 ? new Date(filteredDreams[index - 1].timestamp).toDateString() : '';
-              const currentDate = new Date().toDateString();
-              
-              // Show divider if:
-              // 1. Date changed AND there are multiple dreams on the previous date, OR
-              // 2. This is the first non-current-day entry (separating current day from older entries)
-              const showDivider = index > 0 && dreamDate !== prevDreamDate && (() => {
-                const prevDateCount = filteredDreams.filter(d => new Date(d.timestamp).toDateString() === prevDreamDate).length;
-                const isPrevDateCurrent = prevDreamDate === currentDate;
-                const isCurrentDateNonCurrent = dreamDate !== currentDate;
-                
-                // Show divider if previous date had multiple dreams OR we're transitioning from current day to older days
-                return prevDateCount > 1 || (isPrevDateCurrent && isCurrentDateNonCurrent);
-              })();
-
-              return (
-                <React.Fragment key={dream.id}>
-                  {showDivider && <hr className="my-4 border-t border-border" />}
-                  <DreamItem
-                    dream={dream}
-                    index={index}
-                    onMove={moveDream}
-                    onEdit={(dreamToEdit) => { setSelectedDream(dreamToEdit); setShowAddDreamForm(true); }}
-                    onDelete={confirmDeleteDream}
-                    totalItems={filteredDreams.length}
-                  />
-                </React.Fragment>
-              );
-            })}
+        {/* Dream List or Welcome Page */}
+        {filteredDreams.length === 0 ? (
+          <div className="text-center py-12">
+            <h3 className="text-lg font-semibold text-foreground mb-2">No dreams recorded yet</h3>
+            <p className="text-muted-foreground mb-4">Start by adding your first dream!</p>
+            <button
+              onClick={() => { setShowAddDreamForm(true); setSelectedDream(null); }}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-3 rounded transition-colors"
+            >
+              Add Your First Dream
+            </button>
           </div>
-        </DragDropProvider>
+        ) : (
+          <DragDropProvider>
+            <div>
+              {filteredDreams.map((dream, index) => {
+                const dreamDate = new Date(dream.timestamp).toDateString();
+                const prevDreamDate = index > 0 ? new Date(filteredDreams[index - 1].timestamp).toDateString() : '';
+                const currentDate = new Date().toDateString();
+                
+                // Show divider if:
+                // 1. Date changed AND there are multiple dreams on the previous date, OR
+                // 2. This is the first non-current-day entry (separating current day from older entries)
+                const showDivider = index > 0 && dreamDate !== prevDreamDate && (() => {
+                  const prevDateCount = filteredDreams.filter(d => new Date(d.timestamp).toDateString() === prevDreamDate).length;
+                  const isPrevDateCurrent = prevDreamDate === currentDate;
+                  const isCurrentDateNonCurrent = dreamDate !== currentDate;
+                  
+                  // Show divider if previous date had multiple dreams OR we're transitioning from current day to older days
+                  return prevDateCount > 1 || (isPrevDateCurrent && isCurrentDateNonCurrent);
+                })();
+
+                return (
+                  <React.Fragment key={dream.id}>
+                    {showDivider && <hr className="my-4 border-t border-border" />}
+                    <DreamItem
+                      dream={dream}
+                      index={index}
+                      onMove={moveDream}
+                      onEdit={(dreamToEdit) => { setSelectedDream(dreamToEdit); setShowAddDreamForm(true); }}
+                      onDelete={confirmDeleteDream}
+                      totalItems={filteredDreams.length}
+                    />
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          </DragDropProvider>
+        )}
       </main>
 
       {/* Import Dialog */}
