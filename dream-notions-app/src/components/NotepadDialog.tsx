@@ -14,6 +14,7 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
+import { Separator } from '@/components/ui/separator';
 
 interface NotepadDialogProps {
   isOpen: boolean;
@@ -40,6 +41,51 @@ const NotepadDialog: React.FC<NotepadDialogProps> = ({
   const [isRenaming, setIsRenaming] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Floating pop-up position and drag state
+  const [panelPos, setPanelPos] = useState({ top: 120, left: 120 });
+  const [dragging, setDragging] = useState(false);
+  const dragOffset = useRef({ x: 0, y: 0 });
+
+  // Center the notepad when opened
+  useEffect(() => {
+    if (isOpen) {
+      // Center in viewport
+      const width = 700;
+      const height = 500;
+      const top = Math.max(40, window.innerHeight / 2 - height / 2);
+      const left = Math.max(40, window.innerWidth / 2 - width / 2);
+      setPanelPos({ top, left });
+    }
+  }, [isOpen]);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setDragging(true);
+    dragOffset.current = {
+      x: e.clientX - panelPos.left,
+      y: e.clientY - panelPos.top,
+    };
+    document.body.style.userSelect = 'none';
+  };
+  useEffect(() => {
+    if (!dragging) return;
+    const handleMouseMove = (e: MouseEvent) => {
+      setPanelPos(pos => ({
+        top: Math.max(0, e.clientY - dragOffset.current.y),
+        left: Math.max(0, e.clientX - dragOffset.current.x),
+      }));
+    };
+    const handleMouseUp = () => {
+      setDragging(false);
+      document.body.style.userSelect = '';
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [dragging]);
 
   useEffect(() => {
     setTabs(prevTabs => 
@@ -415,75 +461,99 @@ const NotepadDialog: React.FC<NotepadDialogProps> = ({
   };
 
   if (!isOpen) return null;
-
+  console.log('NotepadDialog rendered');
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-3xl h-[75vh] p-0 gap-0 bg-gray-900 border-gray-700">
+    <div
+      style={{
+        position: 'fixed',
+        top: panelPos.top,
+        left: panelPos.left,
+        zIndex: 1000,
+        width: '100%',
+        maxWidth: '48rem', // max-w-3xl
+        minWidth: 0,
+        height: '650px',
+        minHeight: '500px',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
+        cursor: dragging ? 'move' : 'default',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+      className="bg-card border border-border shadow-lg rounded-lg p-0"
+    >
+      <div
+        className="flex items-center justify-between px-4 py-2 rounded-t-lg cursor-move bg-muted border-b border-border"
+        style={{ userSelect: 'none' }}
+        onMouseDown={handleMouseDown}
+      >
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-primary">Notepad</span>
+        </div>
+        <Button size="icon" variant="ghost" onClick={onClose} title="Close Notepad">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+        </Button>
+      </div>
+      <div className="flex-1 flex flex-col min-h-0" style={{overflow: 'hidden'}}>
         {/* Tab Navigation using shadcn Tabs */}
-        <Tabs value={activeTabId} onValueChange={setActiveTabId} className="flex-1 flex flex-col">
-          <div className="flex items-center justify-between px-4 py-2 border-b border-gray-700 bg-gray-800">
+        <Tabs value={activeTabId} onValueChange={setActiveTabId} className="flex-1 flex flex-col min-h-0">
+          <div className="flex items-center justify-between px-4 pt-2" style={{ background: 'transparent', borderBottom: 'none' }}>
             <div className="flex items-center gap-4">
-              <DialogTitle className="text-base font-semibold text-white">Notepad</DialogTitle>
-              <TabsList className="h-auto p-1 bg-gray-700/50 border border-gray-600">
-                {tabs.map((tab) => (
-                  <div key={tab.id} className="relative">
-                    {isRenaming === tab.id ? (
-                      <input
-                        type="text"
-                        value={renameValue}
-                        onChange={(e) => setRenameValue(e.target.value)}
-                        onBlur={finishRename}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') finishRename();
-                          if (e.key === 'Escape') {
-                            setIsRenaming(null);
-                            setRenameValue('');
-                          }
-                        }}
-                        className="h-9 px-3 text-sm bg-gray-800 border border-gray-600 rounded-md text-white min-w-[80px] focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        autoFocus
-                      />
-                    ) : tab.isDeletable ? (
-                      <ContextMenu>
-                        <ContextMenuTrigger asChild>
+              <TabsList className="h-auto p-0 bg-transparent border-none shadow-none">
+                {tabs.map((tab) => {
+                  const isActive = tab.id === activeTabId;
+                  return (
+                    <ContextMenu key={tab.id}>
+                      <ContextMenuTrigger asChild>
+                        <div className="relative">
                           <TabsTrigger
                             value={tab.id}
-                            className="relative text-white data-[state=active]:bg-gray-600 data-[state=active]:text-white hover:bg-gray-600/50 hover:text-white"
+                            className="relative text-foreground data-[state=active]:bg-primary/20 data-[state=active]:text-primary font-medium rounded-none px-4 py-2 border-b-2 border-transparent data-[state=active]:border-primary transition-colors"
+                            style={{ minWidth: 80 }}
                           >
-                            {tab.name}
+                            {isRenaming === tab.id ? (
+                              <input
+                                type="text"
+                                value={renameValue}
+                                onChange={(e) => setRenameValue(e.target.value)}
+                                onBlur={finishRename}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') finishRename();
+                                  if (e.key === 'Escape') {
+                                    setIsRenaming(null);
+                                    setRenameValue('');
+                                  }
+                                }}
+                                className="h-7 px-2 text-xs bg-muted border border-border rounded-md text-foreground min-w-[80px] focus:outline-none focus:ring-2 focus:ring-primary absolute left-0 top-0 z-10"
+                                autoFocus
+                              />
+                            ) : (
+                              tab.name
+                            )}
                           </TabsTrigger>
-                        </ContextMenuTrigger>
-                        <ContextMenuContent className="bg-gray-800 border-gray-600">
-                          <ContextMenuItem 
-                            onClick={() => startRename(tab.id)}
-                            className="text-white hover:bg-gray-700 hover:text-white cursor-pointer"
-                          >
-                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                            Rename
-                          </ContextMenuItem>
-                        </ContextMenuContent>
-                      </ContextMenu>
-                    ) : (
-                      <TabsTrigger
-                        value={tab.id}
-                        className="relative text-white data-[state=active]:bg-gray-600 data-[state=active]:text-white hover:bg-gray-600/50 hover:text-white"
-                      >
-                        {tab.name}
-                      </TabsTrigger>
-                    )}
-                  </div>
-                ))}
+                        </div>
+                      </ContextMenuTrigger>
+                      <ContextMenuContent className="bg-card border-border">
+                        <ContextMenuItem 
+                          onClick={() => startRename(tab.id)}
+                          className="text-foreground hover:bg-muted cursor-pointer"
+                        >
+                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                          Rename
+                        </ContextMenuItem>
+                      </ContextMenuContent>
+                    </ContextMenu>
+                  );
+                })}
               </TabsList>
             </div>
-            
             {/* Plus button to add new tab */}
             <Button
               variant="outline"
               size="sm"
               onClick={addNewTab}
-              className="ml-2 h-7 w-7 p-0 bg-gray-700 border-gray-600 text-white hover:bg-gray-600 hover:text-white"
+              className="ml-2 h-7 w-7 p-0 bg-card border border-border text-foreground hover:bg-muted/80"
               title="Add new tab"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -491,145 +561,237 @@ const NotepadDialog: React.FC<NotepadDialogProps> = ({
               </svg>
             </Button>
           </div>
-          
-          {tabs.map((tab) => (
-            <TabsContent key={tab.id} value={tab.id} className="flex-1 flex flex-col px-3 py-2 mt-0 bg-gray-900">
-              {/* Controls - Top Row */}
-              <div className="flex items-center gap-2 mb-2 p-2 bg-gray-800 rounded-lg border border-gray-700">
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={moveLineUp}
-                    title="Move line up"
-                    className="text-xs h-7 bg-gray-700 border-gray-600 text-white hover:bg-gray-600 hover:text-white"
-                  >
-                    <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+          {tabs.map((tab) => {
+            const isActive = tab.id === activeTabId;
+            const isFirstTab = tab.id === 'todo';
+            return (
+              <TabsContent
+                key={tab.id}
+                value={tab.id}
+                className="flex flex-col flex-1 min-h-0 p-0 m-0 bg-card overflow-auto"
+                style={{ minHeight: '400px', height: '100%' }}
+              >
+                {/* For first tab, textarea first, then buttons. For others, buttons first, then textarea. */}
+                {isFirstTab ? (
+                  <>
+                    <div className="flex-1 flex flex-col">
+                      <Textarea
+                        ref={isActive ? textareaRef : undefined}
+                        className="w-full h-full flex-1 min-h-0 m-0 p-3 font-mono text-xs resize-none text-foreground bg-transparent border border-border rounded-md placeholder:text-muted-foreground px-4"
+                        style={{ minHeight: '300px', maxHeight: '100%', height: '100%', overflowY: 'auto', alignSelf: 'stretch' }}
+                        value={tab.content}
+                        onChange={(e) => {
+                          setTabs(prevTabs => prevTabs.map(t => t.id === tab.id ? { ...t, content: e.target.value } : t));
+                        }}
+                        onKeyDown={isActive ? handleKeyDown : undefined}
+                        placeholder="Start writing your notes in markdown...\n\nUse ## Todo, ## Que, ## Done, and ## Inbox sections for task management."
+                      />
+                    </div>
+                    <div className="flex gap-2 items-center p-2 bg-card rounded-b-lg border border-t-0 border-border w-full mt-2">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={moveLineUp}
+                          title="Move line up"
+                          className="text-[10px] h-7 bg-card border border-border text-foreground hover:bg-muted/80"
+                        >
+                          <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                          </svg>
+                          Move Up
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={moveLineDown}
+                          title="Move line down"
+                          className="text-xs h-7 bg-card border border-border text-foreground hover:bg-muted/80"
+                        >
+                          <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                          Move Down
+                        </Button>
+                      </div>
+                      <div className="w-px h-6 bg-border"></div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={promoteToTodo}
+                          title="Promote to Todo section"
+                          className="text-xs h-7 bg-primary text-primary-foreground hover:bg-primary/90"
+                        >
+                          <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                          </svg>
+                          Promote
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={demoteFromTodo}
+                          title="Demote to top of Inbox"
+                          className="text-xs h-7 bg-primary text-primary-foreground hover:bg-primary/90"
+                        >
+                          <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 17h-8m0 0V9m0 8l8-8 4 4 6-6" />
+                          </svg>
+                          Demote
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={deleteCurrentLine}
+                          title="Delete current line"
+                          className="text-xs h-7 bg-card border border-red-500/50 text-red-500 hover:bg-muted/80"
+                        >
+                          <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          Delete
+                        </Button>
+                      </div>
+                      <div className="flex-1"></div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={moveToDone}
+                        title="Move to top of Done section"
+                        className="text-xs h-7 bg-card border border-green-500/50 text-green-500 hover:bg-muted/80"
+                      >
+                        <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Done
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex-1 flex flex-col">
+                      <Textarea
+                        ref={isActive ? textareaRef : undefined}
+                        className="w-full px-4 py-2 border border-border rounded bg-transparent text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm resize-none mb-4"
+                        value={tab.content}
+                        onChange={(e) => {
+                          setTabs(prevTabs => prevTabs.map(t => t.id === tab.id ? { ...t, content: e.target.value } : t));
+                        }}
+                        onKeyDown={isActive ? handleKeyDown : undefined}
+                        placeholder="Start writing your notes in markdown...\n\nUse ## Todo, ## Que, ## Done, and ## Inbox sections for task management."
+                      />
+                    </div>
+                    <div className="flex gap-2 items-center p-2 bg-card rounded-b-lg border border-t-0 border-border w-full mt-2">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={moveLineUp}
+                          title="Move line up"
+                          className="text-[10px] h-7 bg-card border border-border text-foreground hover:bg-muted/80"
+                        >
+                          <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                          </svg>
+                          Move Up
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={moveLineDown}
+                          title="Move line down"
+                          className="text-xs h-7 bg-card border border-border text-foreground hover:bg-muted/80"
+                        >
+                          <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                          Move Down
+                        </Button>
+                      </div>
+                      <div className="w-px h-6 bg-border"></div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={promoteToTodo}
+                          title="Promote to Todo section"
+                          className="text-xs h-7 bg-primary text-primary-foreground hover:bg-primary/90"
+                        >
+                          <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                          </svg>
+                          Promote
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={demoteFromTodo}
+                          title="Demote to top of Inbox"
+                          className="text-xs h-7 bg-primary text-primary-foreground hover:bg-primary/90"
+                        >
+                          <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 17h-8m0 0V9m0 8l8-8 4 4 6-6" />
+                          </svg>
+                          Demote
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={deleteCurrentLine}
+                          title="Delete current line"
+                          className="text-xs h-7 bg-card border border-red-500/50 text-red-500 hover:bg-muted/80"
+                        >
+                          <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          Delete
+                        </Button>
+                      </div>
+                      <div className="flex-1"></div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={moveToDone}
+                        title="Move to top of Done section"
+                        className="text-xs h-7 bg-card border border-green-500/50 text-green-500 hover:bg-muted/80"
+                      >
+                        <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Done
+                      </Button>
+                    </div>
+                  </>
+                )}
+                {/* Footer */}
+                <div className="flex justify-between items-center px-4 py-3 border-t border-border bg-card rounded-b-md mt-2 gap-2">
+                  {activeTab?.isDeletable && (
+                    <Button
+                      variant="outline"
+                      onClick={deleteCurrentTab}
+                      className="bg-card border border-red-500/50 text-red-500 hover:bg-muted/80"
+                    >
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      Delete Tab
+                    </Button>
+                  )}
+                  {!activeTab?.isDeletable && <div></div>}
+                  <Button onClick={handleSave} className="bg-card border border-primary text-foreground hover:bg-muted/80 font-semibold px-6 py-2 rounded-md">
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
-                    Move Up
-                  </Button>
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={moveLineDown}
-                    title="Move line down"
-                    className="text-xs h-7 bg-gray-700 border-gray-600 text-white hover:bg-gray-600 hover:text-white"
-                  >
-                    <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                    Move Down
+                    Save
                   </Button>
                 </div>
-                
-                <div className="w-px h-6 bg-gray-600"></div>
-                
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={promoteToTodo}
-                    title="Promote to Todo section"
-                    className="text-xs h-7 bg-gray-700 border-blue-500/50 text-blue-400 hover:bg-blue-500/20 hover:text-blue-300"
-                  >
-                    <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                    </svg>
-                    Promote
-                  </Button>
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={demoteFromTodo}
-                    title="Demote to top of Inbox"
-                    className="text-xs h-7 bg-gray-700 border-orange-500/50 text-orange-400 hover:bg-orange-500/20 hover:text-orange-300"
-                  >
-                    <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 17h-8m0 0V9m0 8l8-8 4 4 6-6" />
-                    </svg>
-                    Demote
-                  </Button>
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={deleteCurrentLine}
-                    title="Delete current line"
-                    className="text-xs h-7 bg-gray-700 border-red-500/50 text-red-400 hover:bg-red-500/20 hover:text-red-300"
-                  >
-                    <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                    Delete
-                  </Button>
-                </div>
-                
-                {/* Spacer to push Done button to far right */}
-                <div className="flex-1"></div>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={moveToDone}
-                  title="Move to top of Done section"
-                  className="text-xs h-7 bg-gray-700 border-green-500/50 text-green-400 hover:bg-green-500/20 hover:text-green-300"
-                >
-                  <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  Done
-                </Button>
-              </div>
-              
-              <div className="flex-1 relative">
-                <Textarea
-                  ref={textareaRef}
-                  className="w-full h-full p-3 font-mono text-sm resize-none text-white bg-gray-900 border-gray-700 placeholder:text-gray-400"
-                  value={tab.id === activeTabId ? content : tab.content}
-                  onChange={(e) => {
-                    if (tab.id === activeTabId) {
-                      setContent(e.target.value);
-                    }
-                  }}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Start writing your notes in markdown...&#10;&#10;Use ## Todo, ## Que, ## Done, and ## Inbox sections for task management."
-                />
-              </div>
-            </TabsContent>
-          ))}
-        
-        {/* Footer */}
-        <div className="flex justify-between items-center px-4 py-3 border-t border-gray-700 bg-gray-800">
-          {/* Delete tab button (only show for deletable tabs) */}
-          {activeTab?.isDeletable && (
-            <Button
-              variant="outline"
-              onClick={deleteCurrentTab}
-              className="bg-gray-700 border-red-500/50 text-red-400 hover:bg-red-500/20 hover:text-red-300"
-            >
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-              Delete Tab
-            </Button>
-          )}
-          
-          {/* Spacer if no delete button */}
-          {!activeTab?.isDeletable && <div></div>}
-          
-          <Button onClick={handleSave} className="bg-blue-600 hover:bg-blue-700 text-white border-blue-600">
-            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            Save Changes
-          </Button>
-        </div>
+              </TabsContent>
+            );
+          })}
         </Tabs>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
 };
 
