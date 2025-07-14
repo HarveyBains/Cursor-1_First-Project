@@ -130,6 +130,16 @@ function App() {
   const [showRenameTagDialog, setShowRenameTagDialog] = useState(false);
   const [tagToRename, setTagToRename] = useState<string | null>(null);
 
+  // Add notepadTabs state and setter
+  const [notepadTabs, setNotepadTabs] = useState<Tab[]>(() => {
+    // Try to load from localStorage or use a default tab
+    const saved = loadFromLocalStorage('notepad_tabs', null);
+    if (Array.isArray(saved) && saved.length > 0) {
+      return saved;
+    }
+    return [{ id: 'todo', name: 'Todo', content: '', isDeletable: false }];
+  });
+
 
   const allUniqueTags = useMemo(() => {
     // Get all tags and normalize them to prevent duplicates
