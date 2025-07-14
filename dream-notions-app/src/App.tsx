@@ -19,6 +19,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { type Tab } from './types/Tab';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 
 // VersionEditor component
 interface VersionEditorProps {
@@ -116,12 +117,12 @@ function App() {
   const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null);
   
   // Debug panel state
-  const [showDebugPanel, setShowDebugPanel] = useState(false);
   const [debugLogs, setDebugLogs] = useState<string[]>([]);
   const [currentVisibleTags, setCurrentVisibleTags] = useState<string[]>([]);
   const [contextMenu, setContextMenu] = useState<{ visible: boolean; x: number; y: number; tag: string | null }>({ visible: false, x: 0, y: 0, tag: null });
   const [showRenameTagDialog, setShowRenameTagDialog] = useState(false);
   const [tagToRename, setTagToRename] = useState<string | null>(null);
+  const [debugPanelOpen, setDebugPanelOpen] = useState(false); // closed by default
 
   // Add notepadTabs state and setter
   const [notepadTabs, setNotepadTabs] = useState<Tab[]>(() => {
@@ -1194,75 +1195,44 @@ function App() {
         </div>
       </header>
 
-      {/* Debug Panel */}
-      {showDebugPanel && (
-        <div className="bg-muted/50 border-b border-border">
-          <div className="max-w-3xl mx-auto px-4 py-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                  <path d="M12 4.5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm-3 6c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm6 0c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm-3 6c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5z"/>
-                </svg>
-                Debug Panel
-              </h3>
+      {/* Debug Panel Collapsible */}
+      <Collapsible open={debugPanelOpen}>
+        <CollapsibleContent forceMount>
+          <div className="bg-card border border-border shadow-lg rounded-lg max-w-3xl mx-auto mt-6 mb-2 p-4">
+            <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setDebugLogs([])}
-                  className="px-2 py-1 text-xs rounded font-medium transition-colors border border-primary text-primary hover:bg-primary/10 hover:text-primary-foreground"
-                >
-                  Clear
-                </button>
-                <button
-                  onClick={copyDebugToClipboard}
-                  className="px-2 py-1 text-xs rounded font-medium transition-colors border border-primary text-primary hover:bg-primary/10 hover:text-primary-foreground"
-                  title="Copy debug info to clipboard"
-                >
-                  📋 Copy
-                </button>
-                <button
-                  onClick={() => setShowDebugPanel(false)}
-                  className="px-2 py-1 text-xs rounded font-medium transition-colors border border-primary text-primary hover:bg-primary/10 hover:text-primary-foreground"
-                >
-                  Close
-                </button>
+                <span className="font-semibold text-primary">Debug Panel</span>
+                <Badge variant="secondary">{user ? 'Firebase' : 'Local'}</Badge>
+              </div>
+              <Button size="icon" variant="ghost" onClick={() => setDebugPanelOpen(false)} title="Close Debug Panel">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </Button>
+            </div>
+            <div className="mb-2 text-xs text-muted-foreground">
+              <div>User: {user ? `${user.displayName} (${user.email})` : 'Not signed in'}</div>
+              <div>Dreams: {dreams.length}</div>
+              <div>Data Source: {user ? '🔥 Firebase' : '💾 localStorage'}</div>
+            </div>
+            <Separator className="my-2" />
+            <div className="mb-2">
+              <div className="font-medium text-sm mb-1">Recent Logs</div>
+              <div className="max-h-40 overflow-y-auto bg-muted/40 rounded p-2 text-xs font-mono">
+                {debugLogs.length === 0 ? (
+                  <div className="text-muted-foreground">No logs yet.</div>
+                ) : (
+                  debugLogs.slice(-50).reverse().map((log, idx) => (
+                    <div key={idx} className="whitespace-pre-line">{log}</div>
+                  ))
+                )}
               </div>
             </div>
-            
-            <div className="bg-card rounded-lg border border-border p-3 max-h-64 overflow-y-auto">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
-                <div className="text-xs text-muted-foreground">
-                  <strong className="text-foreground">User Status:</strong> {user ? `✅ ${user.displayName}` : '❌ Not signed in'}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  <strong className="text-foreground">Dreams Count:</strong> {dreams.length}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  <strong className="text-foreground">Data Source:</strong> {user ? '🔥 Firebase' : '💾 localStorage'}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  <strong className="text-foreground">User ID:</strong> {user?.uid || 'None'}
-                </div>
-              </div>
-              
-              <div className="border-t border-border pt-3">
-                <strong className="text-xs text-foreground">Debug Logs:</strong>
-                <div className="mt-2 space-y-1 font-mono text-xs">
-                  {debugLogs.length === 0 ? (
-                    <div className="text-muted-foreground italic">No logs yet...</div>
-                  ) : (
-                    debugLogs.slice(-20).reverse().map((log, index) => (
-                      <div key={index} className="text-muted-foreground">
-                        {log}
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
+            <div className="flex flex-wrap gap-2 mt-2">
+              <Button size="sm" variant="outline" onClick={copyDebugToClipboard}>Copy Debug Info</Button>
+              <Button size="sm" variant="outline" onClick={() => setDebugLogs([])}>Reset</Button>
             </div>
           </div>
-        </div>
-      )}
+        </CollapsibleContent>
+      </Collapsible>
 
       <main className="max-w-3xl mx-auto px-4 py-6">
         {/* Control Panel */}
@@ -1301,30 +1271,23 @@ function App() {
                   </svg>
                   <span className="hidden sm:inline">Notepad</span>
                 </button>
-                
-                {/* Debug Panel Button */}
-                <button
-                  onClick={() => setShowDebugPanel(!showDebugPanel)}
-                  className="px-3 py-2 rounded-lg text-xs transition-colors font-medium flex items-center gap-1.5 border bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
-                  title="Debug Panel"
+                {/* Debug Button */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDebugPanelOpen(true)}
+                  className="px-3 py-2 rounded-lg text-xs transition-colors font-medium flex items-center gap-1.5 border bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 ml-2"
+                  title="Open Debug Panel"
+                  type="button"
                 >
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                    {/* Bug body */}
-                    <ellipse cx="12" cy="12" rx="3" ry="6"/>
-                    {/* Bug head */}
-                    <circle cx="12" cy="6" r="2"/>
-                    {/* Antennae */}
-                    <path d="M10 4l-1-2M14 4l1-2"/>
-                    {/* Wings */}
-                    <ellipse cx="9" cy="10" rx="2" ry="3" transform="rotate(-20 9 10)" opacity="0.7"/>
-                    <ellipse cx="15" cy="10" rx="2" ry="3" transform="rotate(20 15 10)" opacity="0.7"/>
-                    {/* Legs */}
-                    <path d="M9 9l-3-1M15 9l3-1M9 12l-3 0M15 12l3 0M9 15l-3 1M15 15l3 1" stroke="currentColor" strokeWidth="1" fill="none"/>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7v4a2 2 0 01-2 2H7a2 2 0 01-2-2V7m0 0V5a2 2 0 012-2h10a2 2 0 012 2v2m-2 0h2m-2 0V5m0 2V5" />
                   </svg>
                   <span className="hidden sm:inline">Debug</span>
-                </button>
+                </Button>
+                
+                {/* Add Button */}
               </div>
-              {/* Add Button */}
               <button
                 onClick={() => { setSelectedDream(null); setShowAddDreamForm(true); }}
                 className="px-3 py-2 rounded-lg text-xs transition-colors font-medium flex items-center gap-1.5 border bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
@@ -1513,12 +1476,6 @@ function App() {
           setNotepadContent(content);
           if (user) {
             firestoreService.saveNotepadContent(content, user.uid);
-          }
-        }}
-        onDelete={() => {
-          setNotepadContent('');
-          if (user) {
-            firestoreService.saveNotepadContent('', user.uid);
           }
         }}
         initialContent={notepadContent}
