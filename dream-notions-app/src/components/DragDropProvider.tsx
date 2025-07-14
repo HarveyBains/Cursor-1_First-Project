@@ -24,9 +24,10 @@ export const DragDropProvider: React.FC<DragDropProviderProps> = ({ children }) 
   const options = isTouchDevice() 
     ? {
         enableMouseEvents: true,
-        delayTouchStart: 200,
+        delayTouchStart: 150,  // Reduced delay for better responsiveness
         delayMouseStart: 0,
-        touchSlop: 5
+        touchSlop: 8,          // Slightly increased tolerance for touch movement
+        ignoreContextMenu: true
       }
     : {}
 

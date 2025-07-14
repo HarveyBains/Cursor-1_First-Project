@@ -21,11 +21,12 @@ const ITEM_TYPE = 'dream';
 const DreamItem: React.FC<DreamItemProps> = ({ dream, index, onMove, onEdit, onDelete }) => {
   const ref = useRef<HTMLDivElement>(null);
 
-  const [{ handlerId }, drop] = useDrop<DragItem, void, { handlerId: string | symbol | null }>({ // Explicitly define the type for the collected properties
+  const [{ handlerId, isOver }, drop] = useDrop<DragItem, void, { handlerId: string | symbol | null; isOver: boolean }>({
     accept: ITEM_TYPE,
     collect(monitor) {
       return {
         handlerId: monitor.getHandlerId(),
+        isOver: monitor.isOver(),
       };
     },
     hover(item, monitor) {
@@ -52,17 +53,16 @@ const DreamItem: React.FC<DreamItemProps> = ({ dream, index, onMove, onEdit, onD
       // Get pixels to the top
       const hoverClientY = clientOffset!.y - hoverBoundingRect.top;
 
-      // Only perform the move when the mouse has crossed half of the items height
-      // When dragging downwards, only move when the cursor is below 50%
-      // When dragging upwards, only move when the cursor is above 50%
+      // More intuitive threshold - use 30% instead of 50% for better responsiveness
+      const threshold = (hoverBoundingRect.bottom - hoverBoundingRect.top) * 0.3;
 
       // Dragging downwards
-      if (dragIndex < hoverIndex && hoverClientY < hoverMiddleY) {
+      if (dragIndex < hoverIndex && hoverClientY < threshold) {
         return;
       }
 
       // Dragging upwards
-      if (dragIndex > hoverIndex && hoverClientY > hoverMiddleY) {
+      if (dragIndex > hoverIndex && hoverClientY > (hoverBoundingRect.bottom - hoverBoundingRect.top) - threshold) {
         return;
       }
 
@@ -86,7 +86,11 @@ const DreamItem: React.FC<DreamItemProps> = ({ dream, index, onMove, onEdit, onD
     }),
   });
 
-  const opacity = isDragging ? 0 : 1;
+  const opacity = isDragging ? 0.5 : 1;
+  const scale = isDragging ? 'scale(1.05)' : 'scale(1)';
+  const borderColor = isOver && !isDragging ? 'border-primary' : 'border-border';
+  const backgroundColor = isOver && !isDragging ? 'bg-primary/5' : 'bg-card';
+  
   drag(drop(ref));
 
   // Format date to DD/MM/YY
@@ -97,10 +101,19 @@ const DreamItem: React.FC<DreamItemProps> = ({ dream, index, onMove, onEdit, onD
   const formattedDate = `${day}/${month}/${year}`;
 
   return (
-    <div ref={ref} style={{ opacity }} data-handler-id={handlerId} className="bg-card border border-border rounded-lg p-1.5 mb-1.5 shadow-sm hover:shadow-md transition-shadow cursor-move">
+    <div 
+      ref={ref} 
+      style={{ 
+        opacity, 
+        transform: scale,
+        transition: 'all 0.2s ease'
+      }} 
+      data-handler-id={handlerId} 
+      className={`${backgroundColor} border ${borderColor} rounded-lg p-1.5 mb-1.5 shadow-sm hover:shadow-md transition-all cursor-move`}
+    >
       <div className="flex items-center gap-1.5">
         <div className="flex-shrink-0 w-12 flex items-center justify-center gap-1">
-          <div className="text-muted-foreground text-xs leading-none">⋮⋮</div>
+          <div className="text-muted-foreground text-xs leading-none hover:text-primary transition-colors cursor-grab active:cursor-grabbing">⋮⋮</div>
           <div 
             className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden border"
             style={{ 
