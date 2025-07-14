@@ -808,7 +808,7 @@ function App() {
 
   const moveDream = useCallback((dragIndex: number, hoverIndex: number) => {
     setDreams((prevDreams) => {
-      // Get the filtered dreams to work with the correct indices
+      // Get the filtered and sorted dreams to work with the correct indices
       const filteredList = prevDreams.filter(dream => {
         if (activeFilter === 'favorites') {
           return dream.isFavorite;
@@ -843,46 +843,23 @@ function App() {
       const draggedDream = filteredList[dragIndex];
       const targetDream = filteredList[hoverIndex];
 
-      // Only allow reordering within the same date group
-      const dragDate = new Date(draggedDream.timestamp).toDateString();
-      const hoverDate = new Date(targetDream.timestamp).toDateString();
-      
-      if (dragDate !== hoverDate) {
-        return prevDreams; // Prevent cross-date reordering
-      }
+      // Simple reordering: move item from dragIndex to hoverIndex
+      const reorderedList = [...filteredList];
+      const [removed] = reorderedList.splice(dragIndex, 1);
+      reorderedList.splice(hoverIndex, 0, removed);
 
-      // Find all dreams on the same date in the filtered list
-      const sameDateDreams = filteredList.filter(dream => 
-        new Date(dream.timestamp).toDateString() === dragDate
-      );
-
-      // Calculate new time offsets for proper ordering within the date group
-      const baseTimestamp = new Date(draggedDream.timestamp);
-      baseTimestamp.setHours(0, 0, 0, 0); // Set to start of day
-      const baseTime = baseTimestamp.getTime();
-
-      // Find the position within the same-date group
-      const dragIndexInGroup = sameDateDreams.findIndex(d => d.id === draggedDream.id);
-      const hoverIndexInGroup = sameDateDreams.findIndex(d => d.id === targetDream.id);
-
-      if (dragIndexInGroup === -1 || hoverIndexInGroup === -1) {
-        return prevDreams;
-      }
-
-      // Reorder within the same-date group
-      const reorderedGroup = [...sameDateDreams];
-      const [removed] = reorderedGroup.splice(dragIndexInGroup, 1);
-      reorderedGroup.splice(hoverIndexInGroup, 0, removed);
-
-      // Update timestamps to reflect new order (keeping the same date but adjusting time)
-      const updatedGroup = reorderedGroup.map((dream, index) => ({
+      // Assign new timestamps to reflect the new order
+      // Use a base timestamp and increment by minutes to maintain order
+      const now = Date.now();
+      const updatedList = reorderedList.map((dream, index) => ({
         ...dream,
-        timestamp: baseTime + (index * 60 * 1000) // Add minutes to maintain order
+        timestamp: now - (index * 60 * 1000) // Subtract minutes so newest items appear first
       }));
 
-      // Create the new dreams array with the updated group
+      // Create the new dreams array, replacing the items that were reordered
+      const dreamIdToUpdatedDream = new Map(updatedList.map(dream => [dream.id, dream]));
       const newDreams = prevDreams.map(dream => {
-        const updatedDream = updatedGroup.find(d => d.id === dream.id);
+        const updatedDream = dreamIdToUpdatedDream.get(dream.id);
         return updatedDream || dream;
       });
 
@@ -1647,6 +1624,7 @@ function App() {
                     onMove={moveDream}
                     onEdit={(dreamToEdit) => { setSelectedDream(dreamToEdit); setShowAddDreamForm(true); }}
                     onDelete={confirmDeleteDream}
+                    totalItems={filteredDreams.length}
                   />
                 </React.Fragment>
               );

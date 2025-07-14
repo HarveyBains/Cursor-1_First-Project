@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import type { DreamEntry } from '../types/DreamEntry';
 import { useDrag, useDrop } from 'react-dnd';
 
@@ -8,6 +8,7 @@ interface DreamItemProps {
   onMove: (dragIndex: number, hoverIndex: number) => void;
   onEdit: (dream: DreamEntry) => void;
   onDelete: (id: string) => void;
+  totalItems?: number;
 }
 
 interface DragItem {
@@ -18,8 +19,48 @@ interface DragItem {
 
 const ITEM_TYPE = 'dream';
 
-const DreamItem: React.FC<DreamItemProps> = ({ dream, index, onMove, onEdit, onDelete }) => {
+const DreamItem: React.FC<DreamItemProps> = ({ dream, index, onMove, onEdit, onDelete, totalItems = 0 }) => {
   const ref = useRef<HTMLDivElement>(null);
+  const [contextMenu, setContextMenu] = useState<{ visible: boolean; x: number; y: number }>({ 
+    visible: false, x: 0, y: 0 
+  });
+
+  // Close context menu when clicking elsewhere
+  useEffect(() => {
+    const handleClick = () => setContextMenu({ visible: false, x: 0, y: 0 });
+    if (contextMenu.visible) {
+      document.addEventListener('click', handleClick);
+      return () => document.removeEventListener('click', handleClick);
+    }
+  }, [contextMenu.visible]);
+
+  // Handle right-click context menu
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setContextMenu({
+      visible: true,
+      x: e.clientX,
+      y: e.clientY
+    });
+  };
+
+  // Handle move up - move current item to position above
+  const handleMoveUp = () => {
+    if (index > 0) {
+      // Move FROM current position TO the position above (index - 1)
+      onMove(index, index - 1);
+    }
+    setContextMenu({ visible: false, x: 0, y: 0 });
+  };
+
+  // Handle move down - move current item to position below  
+  const handleMoveDown = () => {
+    if (index < totalItems - 1) {
+      // Move FROM current position TO the position below (index + 1)
+      onMove(index, index + 1);
+    }
+    setContextMenu({ visible: false, x: 0, y: 0 });
+  };
 
   const [{ handlerId, isOver }, drop] = useDrop<DragItem, void, { handlerId: string | symbol | null; isOver: boolean }>({
     accept: ITEM_TYPE,
@@ -101,16 +142,18 @@ const DreamItem: React.FC<DreamItemProps> = ({ dream, index, onMove, onEdit, onD
   const formattedDate = `${day}/${month}/${year}`;
 
   return (
-    <div 
-      ref={ref} 
-      style={{ 
-        opacity, 
-        transform: scale,
-        transition: 'all 0.2s ease'
-      }} 
-      data-handler-id={handlerId} 
-      className={`${backgroundColor} border ${borderColor} rounded-lg p-1.5 mb-1.5 shadow-sm hover:shadow-md transition-all cursor-move`}
-    >
+    <>
+      <div 
+        ref={ref} 
+        style={{ 
+          opacity, 
+          transform: scale,
+          transition: 'all 0.2s ease'
+        }} 
+        data-handler-id={handlerId} 
+        className={`${backgroundColor} border ${borderColor} rounded-lg p-1.5 mb-1.5 shadow-sm hover:shadow-md transition-all cursor-move`}
+        onContextMenu={handleContextMenu}
+      >
       <div className="flex items-center gap-1.5">
         <div className="flex-shrink-0 w-12 flex items-center justify-center gap-1">
           <div className="text-muted-foreground text-xs leading-none hover:text-primary transition-colors cursor-grab active:cursor-grabbing">⋮⋮</div>
@@ -166,7 +209,38 @@ const DreamItem: React.FC<DreamItemProps> = ({ dream, index, onMove, onEdit, onD
           </div>
         </div>
       </div>
-    </div>
+      </div>
+
+      {/* Context Menu */}
+      {contextMenu.visible && (
+        <div
+          className="fixed bg-background border border-border rounded-md shadow-lg py-1 z-50 min-w-[140px]"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={handleMoveUp}
+            disabled={index === 0}
+            className="w-full px-3 py-2 text-left text-sm hover:bg-muted transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+            </svg>
+            Move Up
+          </button>
+          <button
+            onClick={handleMoveDown}
+            disabled={index === totalItems - 1}
+            className="w-full px-3 py-2 text-left text-sm hover:bg-muted transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+            Move Down
+          </button>
+        </div>
+      )}
+    </>
   );
 };
 
