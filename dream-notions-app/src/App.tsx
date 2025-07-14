@@ -84,7 +84,7 @@ function cleanDreamTagsAndColors(dreams: DreamEntry[]) {
 }
 
 function App() {
-  const { user, signInWithGoogle, signOutUser, signInWithGoogleRedirect } = useAuth();
+  const { user, signInWithGoogle, signOutUser } = useAuth();
   // Initialize dreams state (will be synced with Firestore when user is authenticated)
   const [dreams, setDreams] = useState<DreamEntry[]>(() => {
     // Start with localStorage data by default - will be replaced by Firestore if user is authenticated
@@ -927,92 +927,6 @@ function App() {
     return currentDreams;
   }, [dreams, activeFilter, sortOrder, activeTagFilter]);
 
-  const handleRepairDreams = async () => {
-    if (!user) {
-      addDebugLog('❌ No user logged in - cannot repair dreams');
-      return;
-    }
-
-    addDebugLog('🔧 Starting comprehensive dream repair...');
-    addDebugLog(`👤 User ID: ${user.uid}`);
-    
-    try {
-      // First, try to get all dreams to see what we're working with
-      const allDreams = await firestoreService.getAllDreamsForRepair();
-      addDebugLog(`📋 Found ${allDreams.length} total dreams in database`);
-      
-      // Count dreams by userId status
-      const dreamsWithUserId = allDreams.filter(d => d.userId);
-      const dreamsWithoutUserId = allDreams.filter(d => !d.userId);
-      const userDreams = allDreams.filter(d => d.userId === user.uid);
-      
-      addDebugLog(`📊 Dreams with userId: ${dreamsWithUserId.length}`);
-      addDebugLog(`📊 Dreams without userId: ${dreamsWithoutUserId.length}`);
-      addDebugLog(`📊 Your dreams: ${userDreams.length}`);
-      
-      if (dreamsWithoutUserId.length > 0) {
-        addDebugLog('🔧 Attempting to repair dreams without userId...');
-        await firestoreService.repairDreamsWithoutUserId(user.uid);
-        addDebugLog('✅ Repair completed');
-      } else {
-        addDebugLog('✅ No dreams need repair');
-      }
-      
-      // Check if we can now access our dreams
-      const updatedDreams = await firestoreService.getUserDreams(user.uid);
-      addDebugLog(`📋 After repair: ${updatedDreams.length} dreams accessible`);
-      
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      addDebugLog(`❌ Repair failed: ${errorMsg}`);
-      addDebugLog('💡 This might be due to Firebase security rules');
-      addDebugLog('💡 Try updating Firebase rules to allow all operations temporarily');
-    }
-  };
-
-  const handleDiagnoseDreams = async () => {
-    if (!user) {
-      addDebugLog('❌ No user logged in - cannot diagnose dreams');
-      return;
-    }
-
-    addDebugLog('🔍 Starting dream ID diagnosis...');
-    addDebugLog(`👤 User ID: ${user.uid}`);
-    
-    try {
-      await firestoreService.diagnoseDreamIds(user.uid);
-      addDebugLog('✅ Diagnosis completed - check browser console for details');
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      addDebugLog(`❌ Diagnosis failed: ${errorMsg}`);
-    }
-  };
-
-  const handleTestDelete = async () => {
-    if (!user || dreams.length === 0) {
-      addDebugLog('❌ No user or no dreams to test with');
-      return;
-    }
-
-    const testDream = dreams[0];
-    addDebugLog(`🧪 Testing delete with dream: ${testDream.name} (ID: ${testDream.id})`);
-    
-    try {
-      await firestoreService.deleteDream(testDream.id);
-      addDebugLog('✅ Test delete completed');
-      
-      // Verify the deletion
-      setTimeout(async () => {
-        const wasDeleted = await firestoreService.verifyDreamDeleted(testDream.id);
-        addDebugLog(`🔍 Verification result: ${wasDeleted ? 'DELETED' : 'STILL EXISTS'}`);
-      }, 2000);
-      
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      addDebugLog(`❌ Test delete failed: ${errorMsg}`);
-    }
-  };
-
   const handleTestFirebase = async () => {
     addDebugLog('🧪 Testing Firebase connection and permissions...');
     
@@ -1022,66 +936,6 @@ function App() {
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       addDebugLog(`❌ Firebase test failed: ${errorMsg}`);
-    }
-  };
-
-  const handleTestNotepadSync = async () => {
-    if (!user) {
-      addDebugLog('❌ No user logged in - cannot test notepad sync');
-      return;
-    }
-
-    addDebugLog('🧪 Testing notepad synchronization...');
-    addDebugLog(`👤 User ID: ${user.uid}`);
-    addDebugLog(`📝 Current notepad tabs: ${notepadTabs.length}`);
-    
-    try {
-      // Test 1: Save current notepad data
-      addDebugLog('📤 Saving current notepad data to Firebase...');
-      await firestoreService.saveNotepadTabs(notepadTabs, user.uid);
-      addDebugLog('✅ Notepad data saved successfully');
-      
-      // Test 2: Read notepad data back
-      addDebugLog('📥 Reading notepad data from Firebase...');
-      const retrievedTabs = await firestoreService.getNotepadTabs(user.uid);
-      addDebugLog(`📝 Retrieved ${retrievedTabs.length} tabs from Firebase`);
-      
-      // Test 3: Compare data
-      const currentData = JSON.stringify(notepadTabs);
-      const retrievedData = JSON.stringify(retrievedTabs);
-      
-      if (currentData === retrievedData) {
-        addDebugLog('✅ Notepad data matches between local and Firebase');
-      } else {
-        addDebugLog('❌ Notepad data mismatch between local and Firebase');
-        addDebugLog(`📋 Local data: ${currentData}`);
-        addDebugLog(`📋 Firebase data: ${retrievedData}`);
-      }
-      
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      addDebugLog(`❌ Notepad sync test failed: ${errorMsg}`);
-    }
-  };
-
-  const handleForceNotepadSync = async () => {
-    if (!user) {
-      addDebugLog('❌ No user logged in - cannot force notepad sync');
-      return;
-    }
-
-    addDebugLog('🔄 Force syncing notepad data to Firebase...');
-    addDebugLog(`📝 Local tabs: ${notepadTabs.length}`);
-    addDebugLog(`📝 Local content: ${JSON.stringify(notepadTabs.map(t => ({ id: t.id, name: t.name, contentLength: t.content.length })))}`);
-    
-    try {
-      // Force save current local data to Firebase
-      await firestoreService.saveNotepadTabs(notepadTabs, user.uid);
-      addDebugLog(`✅ Force sync completed - local data saved to Firebase`);
-      
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      addDebugLog(`❌ Force sync failed: ${errorMsg}`);
     }
   };
 
@@ -1113,8 +967,8 @@ function App() {
       }
       
       // Test 3: Show data details
-      addDebugLog(`📋 Local tabs: ${JSON.stringify(notepadTabs.map(t => ({ id: t.id, name: t.name, contentLength: t.content.length })))}`);
-      addDebugLog(`📋 Firebase tabs: ${JSON.stringify(firebaseTabs.map(t => ({ id: t.id, name: t.name, contentLength: t.content.length })))}`);
+      addDebugLog(`📋 Local tabs: ${JSON.stringify(notepadTabs.map((t: Tab) => ({ id: t.id, name: t.name, contentLength: t.content.length })))}`);
+      addDebugLog(`📋 Firebase tabs: ${JSON.stringify(firebaseTabs.map((t: Tab) => ({ id: t.id, name: t.name, contentLength: t.content.length })))}`);
       
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
@@ -1135,7 +989,7 @@ function App() {
       addDebugLog(`📝 Firebase has ${firebaseTabs.length} tabs`);
       
       if (firebaseTabs.length > 0) {
-        firebaseTabs.forEach((tab, index) => {
+        firebaseTabs.forEach((tab: Tab, index: number) => {
           addDebugLog(`📝 Tab ${index + 1}: ${tab.name} (${tab.content.length} chars)`);
           if (tab.content.length > 0) {
             addDebugLog(`📝 Content preview: ${tab.content.substring(0, 100)}...`);
@@ -1217,35 +1071,6 @@ function App() {
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       addDebugLog(`❌ Cross-device sync test failed: ${errorMsg}`);
-    }
-  };
-
-  const handleRestoreFromBackup = async () => {
-    if (!user) {
-      addDebugLog('❌ No user logged in - cannot restore from backup');
-      return;
-    }
-
-    addDebugLog('🔄 Restoring notepad data from localStorage backup...');
-    
-    const backupTabs = loadFromLocalStorage('notepad_tabs_backup', null);
-    if (backupTabs && backupTabs.length > 0) {
-      addDebugLog(`📝 Found backup with ${backupTabs.length} tabs`);
-      addDebugLog(`📝 Backup content: ${JSON.stringify(backupTabs.map((t: any) => ({ id: t.id, name: t.name, contentLength: t.content.length })))}`);
-      
-      // Restore local state
-      setNotepadTabs(backupTabs);
-      
-      // Save to Firebase
-      try {
-        await firestoreService.saveNotepadTabs(backupTabs, user.uid);
-        addDebugLog(`✅ Backup restored to Firebase successfully`);
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-        addDebugLog(`❌ Failed to save backup to Firebase: ${errorMsg}`);
-      }
-    } else {
-      addDebugLog(`📝 No backup found in localStorage`);
     }
   };
 

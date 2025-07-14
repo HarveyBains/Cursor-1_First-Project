@@ -11,7 +11,6 @@ interface NotepadDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (content: string) => void;
-  onDelete: () => void;
   initialContent: string;
 }
 
@@ -19,7 +18,6 @@ const NotepadDialog: React.FC<NotepadDialogProps> = ({
   isOpen, 
   onClose, 
   onSave, 
-  onDelete,
   initialContent,
 }) => {
   const [tabs, setTabs] = useState<Tab[]>([
@@ -155,31 +153,6 @@ const NotepadDialog: React.FC<NotepadDialogProps> = ({
     return { lineIndex, isListItem, line };
   };
 
-  // Determine current section
-  const getCurrentSection = () => {
-    const { lineIndex } = getCurrentLineInfo();
-    const structure = parseStructure(content);
-    
-    if (structure.todoSectionStart !== -1 && 
-        lineIndex >= structure.todoSectionStart && 
-        lineIndex <= structure.todoSectionEnd) {
-      return 'todo';
-    } else if (structure.queSectionStart !== -1 && 
-               lineIndex >= structure.queSectionStart && 
-               lineIndex <= structure.queSectionEnd) {
-      return 'que';
-    } else if (structure.inboxSectionStart !== -1 && 
-               lineIndex >= structure.inboxSectionStart && 
-               lineIndex <= structure.inboxSectionEnd) {
-      return 'inbox';
-    } else if (structure.doneSectionStart !== -1 && 
-               lineIndex >= structure.doneSectionStart && 
-               lineIndex <= structure.doneSectionEnd) {
-      return 'done';
-    }
-    return 'other';
-  };
-
   // No auto-formatting - normal text editor behavior
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // Allow normal text editing without any auto-formatting
@@ -234,41 +207,6 @@ const NotepadDialog: React.FC<NotepadDialogProps> = ({
       }
     }, 0);
   };
-
-  // Move item to Todo section (legacy function)
-  const moveToTodo = () => {
-    const lines = content.split('\n');
-    const { lineIndex, isListItem, line } = getCurrentLineInfo();
-    
-    if (!isListItem) return;
-    
-    const structure = parseStructure(content);
-    const newLines = [...lines];
-    
-    // Remove the item from current location
-    newLines.splice(lineIndex, 1);
-    
-    // Ensure Todo section exists
-    let todoInsertIndex: number;
-    if (structure.todoSectionStart === -1) {
-      // Create Todo section at the top
-      newLines.unshift('## Todo', '');
-      todoInsertIndex = 1;
-    } else {
-      // Insert at the top of existing Todo section
-      todoInsertIndex = structure.todoSectionStart + 1;
-      // Skip any empty lines right after the header
-      while (todoInsertIndex < newLines.length && newLines[todoInsertIndex].trim() === '') {
-        todoInsertIndex++;
-      }
-    }
-    
-    // Insert the item at the top of Todo section
-    newLines.splice(todoInsertIndex, 0, line);
-    
-    setContent(newLines.join('\n'));
-  };
-
 
   // Move to Done: Move line just below Done heading
   const moveToDone = () => {
@@ -490,10 +428,6 @@ const NotepadDialog: React.FC<NotepadDialogProps> = ({
     const todoTab = tabs.find(tab => tab.id === 'todo');
     const formattedContent = todoTab ? formatContent(todoTab.content) : '';
     onSave(formattedContent);
-    onClose();
-  };
-
-  const handleCancel = () => {
     onClose();
   };
 
