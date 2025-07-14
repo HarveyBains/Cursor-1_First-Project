@@ -224,17 +224,44 @@ export class FirestoreService {
 
   async deleteAllUserDreams(userId: string): Promise<void> {
     try {
+      console.log(`🗑️ Starting deleteAllUserDreams for userId: ${userId}`);
       const dreamsRef = collection(db, 'dreams');
+      
+      // First, let's check all dreams to see what we have
+      const allDreamsSnapshot = await getDocs(dreamsRef);
+      console.log(`🗑️ Total dreams in database: ${allDreamsSnapshot.docs.length}`);
+      
+      // Log all dreams to see userId distribution
+      allDreamsSnapshot.docs.forEach((doc, index) => {
+        const data = doc.data();
+        console.log(`🗑️ All Dream ${index + 1}: ID=${doc.id}, userId="${data.userId}", name=${data.name}`);
+      });
+      
+      // Now query specifically for this user's dreams
       const q = query(dreamsRef, where('userId', '==', userId));
       const querySnapshot = await getDocs(q);
+      
+      console.log(`🗑️ Found ${querySnapshot.docs.length} dreams to delete for user "${userId}"`);
+      
+      if (querySnapshot.docs.length === 0) {
+        console.log('🗑️ No dreams found to delete for this specific user');
+        return;
+      }
+      
+      // Log the dreams being deleted for debugging
+      querySnapshot.docs.forEach((doc, index) => {
+        const data = doc.data();
+        console.log(`🗑️ Deleting Dream ${index + 1}: ID=${doc.id}, userId="${data.userId}", name=${data.name}`);
+      });
       
       const deletePromises = querySnapshot.docs.map(doc => 
         deleteDoc(doc.ref)
       );
       
       await Promise.all(deletePromises);
+      console.log(`✅ Successfully deleted ${querySnapshot.docs.length} dreams for user "${userId}"`);
     } catch (error) {
-      console.error('Error deleting all dreams:', error);
+      console.error('❌ Error deleting all dreams:', error);
       throw error;
     }
   }
@@ -247,7 +274,17 @@ export class FirestoreService {
     );
     
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      console.log('📡 Firestore snapshot received, docs count:', querySnapshot.docs.length);
+      console.log(`📡 Firestore snapshot received for user ${userId}, docs count:`, querySnapshot.docs.length);
+      
+      // Log the dreams for debugging
+      if (querySnapshot.docs.length > 0) {
+        querySnapshot.docs.forEach((doc, index) => {
+          const data = doc.data();
+          console.log(`📡 Dream ${index + 1}: ID=${doc.id}, userId=${data.userId}, name=${data.name}`);
+        });
+      } else {
+        console.log('📡 No dreams found in snapshot');
+      }
       
       const dreams = querySnapshot.docs.map(doc => ({
         id: doc.id,

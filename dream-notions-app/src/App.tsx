@@ -556,9 +556,25 @@ function App() {
     setShowImportDialog(false);
   };
 
-  const handleResetAllDreams = () => {
-    setDreams([]);
-    setShowImportDialog(false);
+  const handleResetAllDreams = async () => {
+    try {
+      if (user) {
+        // Delete all dreams from Firebase for authenticated users
+        await firestoreService.deleteAllUserDreams(user.uid);
+        console.log('✅ All dreams deleted from Firebase');
+      } else {
+        // Clear localStorage for unauthenticated users
+        saveToLocalStorage('dreams_local', []);
+        console.log('✅ All dreams cleared from localStorage');
+      }
+      
+      // Update local state
+      setDreams([]);
+      setShowImportDialog(false);
+    } catch (error) {
+      console.error('❌ Error deleting all dreams:', error);
+      alert('Failed to delete all dreams. Please try again.');
+    }
   };
 
   const handleAddDream = async (newDream: DreamEntry) => {

@@ -26,18 +26,11 @@ This document contains:
 ## Development Status & Tasks
 For current development status, active issues, and pending tasks, see: **DEVELOPMENT-GUIDE.md**
 
-This document contains:
-- Current build errors and TypeScript issues
-- Active development tasks and priorities
-- Technical architecture and patterns
-- Debugging tools and common issues
-- Development workflow guidelines
-- Multi-tab notepad implementation status
+
 
 ## Development Commands
 - `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build
+
 
 ## Project Structure
 - `src/components/` - React components
@@ -56,7 +49,9 @@ This document contains:
 
 ## Notes
 - This file helps Claude understand your project better
-- Always check Current-State-PRD.md for the most up-to-date feature status
-- Design-Plan-Prompt.md contains the original vision and requirements
+- Current-State-PRD.md contains most up-to-date feature status
 - DEVELOPMENT-GUIDE.md contains current tasks, issues, and development status
 - The app is currently in active development with many features planned
+
+## Claude Session Startup
+- Always read the claude.md file on claude session startup

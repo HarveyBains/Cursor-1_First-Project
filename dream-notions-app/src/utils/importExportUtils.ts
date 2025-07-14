@@ -44,7 +44,8 @@ export const parseImportMarkdown = (markdownText: string): DreamEntry[] => {
 
       console.log(`  Parsed Date Components: Day=${day}, Month=${month + 1}, Year=${year}`);
 
-      const date = new Date(year, month, day);
+      // Create date at midnight (00:00:00) to ensure consistent time component
+      const date = new Date(year, month, day, 0, 0, 0, 0);
       const timestamp = !isNaN(date.getTime()) ? date.getTime() : Date.now();
       console.log('  Resulting Timestamp:', timestamp);
 
@@ -169,12 +170,15 @@ export const exportDreams = async (dreams: DreamEntry[]): Promise<void> => {
     const day = String(date.getDate()).padStart(2, '0');
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const yearShort = String(date.getFullYear()).slice(-2); // Get last two digits of year
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
 
     const formattedDateDDMMYY = `${day}/${month}/${yearShort}`;
+    const formattedTime = `${hours}:${minutes}`;
     const tags = dream.tags && dream.tags.length > 0 ? dream.tags.join(',') : 'Default'; // Ensure Default on export
 
-    // Format: DD/MM/YY - Dream Title, Tags:Tag1,Tag2,Tag3\nDescription\n---
-    return `${formattedDateDDMMYY} - ${dream.name}, Tags:${tags}\n${dream.description || ''}\n---`;
+    // Format: DD/MM/YY HH:MM - Dream Title, Tags:Tag1,Tag2,Tag3\nDescription\n---
+    return `${formattedDateDDMMYY} ${formattedTime} - ${dream.name}, Tags:${tags}\n${dream.description || ''}\n---`;
   }).join('\n');
 
   const markdownContent = `${header}${dreamEntries}${footer}`;
