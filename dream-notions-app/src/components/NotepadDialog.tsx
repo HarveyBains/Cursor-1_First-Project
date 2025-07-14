@@ -563,7 +563,6 @@ const NotepadDialog: React.FC<NotepadDialogProps> = ({
           </div>
           {tabs.map((tab) => {
             const isActive = tab.id === activeTabId;
-            const isFirstTab = tab.id === 'todo';
             return (
               <TabsContent
                 key={tab.id}
@@ -571,199 +570,99 @@ const NotepadDialog: React.FC<NotepadDialogProps> = ({
                 className="flex flex-col flex-1 min-h-0 p-0 m-0 bg-card overflow-auto"
                 style={{ minHeight: '400px', height: '100%' }}
               >
-                {/* For first tab, textarea first, then buttons. For others, buttons first, then textarea. */}
-                {isFirstTab ? (
-                  <>
-                    <div className="flex-1 flex flex-col">
-                      <Textarea
-                        ref={isActive ? textareaRef : undefined}
-                        className="w-full h-full flex-1 min-h-0 m-0 p-3 font-mono text-xs resize-none text-foreground bg-transparent border border-border rounded-md placeholder:text-muted-foreground px-4"
-                        style={{ minHeight: '300px', maxHeight: '100%', height: '100%', overflowY: 'auto', alignSelf: 'stretch' }}
-                        value={tab.content}
-                        onChange={(e) => {
-                          setTabs(prevTabs => prevTabs.map(t => t.id === tab.id ? { ...t, content: e.target.value } : t));
-                        }}
-                        onKeyDown={isActive ? handleKeyDown : undefined}
-                        placeholder="Start writing your notes in markdown...\n\nUse ## Todo, ## Que, ## Done, and ## Inbox sections for task management."
-                      />
-                    </div>
-                    <div className="flex gap-2 items-center p-2 bg-card rounded-b-lg border border-t-0 border-border w-full mt-2">
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={moveLineUp}
-                          title="Move line up"
-                          className="text-[10px] h-7 bg-card border border-border text-foreground hover:bg-muted/80"
-                        >
-                          <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                          </svg>
-                          Move Up
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={moveLineDown}
-                          title="Move line down"
-                          className="text-xs h-7 bg-card border border-border text-foreground hover:bg-muted/80"
-                        >
-                          <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                          Move Down
-                        </Button>
-                      </div>
-                      <div className="w-px h-6 bg-border"></div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={promoteToTodo}
-                          title="Promote to Todo section"
-                          className="text-xs h-7 bg-primary text-primary-foreground hover:bg-primary/90"
-                        >
-                          <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                          </svg>
-                          Promote
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={demoteFromTodo}
-                          title="Demote to top of Inbox"
-                          className="text-xs h-7 bg-primary text-primary-foreground hover:bg-primary/90"
-                        >
-                          <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 17h-8m0 0V9m0 8l8-8 4 4 6-6" />
-                          </svg>
-                          Demote
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={deleteCurrentLine}
-                          title="Delete current line"
-                          className="text-xs h-7 bg-card border border-red-500/50 text-red-500 hover:bg-muted/80"
-                        >
-                          <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                          Delete
-                        </Button>
-                      </div>
-                      <div className="flex-1"></div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={moveToDone}
-                        title="Move to top of Done section"
-                        className="text-xs h-7 bg-card border border-green-500/50 text-green-500 hover:bg-muted/80"
-                      >
-                        <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        Done
-                      </Button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex-1 flex flex-col">
-                      <Textarea
-                        ref={isActive ? textareaRef : undefined}
-                        className="w-full px-4 py-2 border border-border rounded bg-transparent text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm resize-none mb-4"
-                        value={tab.content}
-                        onChange={(e) => {
-                          setTabs(prevTabs => prevTabs.map(t => t.id === tab.id ? { ...t, content: e.target.value } : t));
-                        }}
-                        onKeyDown={isActive ? handleKeyDown : undefined}
-                        placeholder="Start writing your notes in markdown...\n\nUse ## Todo, ## Que, ## Done, and ## Inbox sections for task management."
-                      />
-                    </div>
-                    <div className="flex gap-2 items-center p-2 bg-card rounded-b-lg border border-t-0 border-border w-full mt-2">
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={moveLineUp}
-                          title="Move line up"
-                          className="text-[10px] h-7 bg-card border border-border text-foreground hover:bg-muted/80"
-                        >
-                          <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                          </svg>
-                          Move Up
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={moveLineDown}
-                          title="Move line down"
-                          className="text-xs h-7 bg-card border border-border text-foreground hover:bg-muted/80"
-                        >
-                          <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                          Move Down
-                        </Button>
-                      </div>
-                      <div className="w-px h-6 bg-border"></div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={promoteToTodo}
-                          title="Promote to Todo section"
-                          className="text-xs h-7 bg-primary text-primary-foreground hover:bg-primary/90"
-                        >
-                          <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                          </svg>
-                          Promote
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={demoteFromTodo}
-                          title="Demote to top of Inbox"
-                          className="text-xs h-7 bg-primary text-primary-foreground hover:bg-primary/90"
-                        >
-                          <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 17h-8m0 0V9m0 8l8-8 4 4 6-6" />
-                          </svg>
-                          Demote
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={deleteCurrentLine}
-                          title="Delete current line"
-                          className="text-xs h-7 bg-card border border-red-500/50 text-red-500 hover:bg-muted/80"
-                        >
-                          <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                          Delete
-                        </Button>
-                      </div>
-                      <div className="flex-1"></div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={moveToDone}
-                        title="Move to top of Done section"
-                        className="text-xs h-7 bg-card border border-green-500/50 text-green-500 hover:bg-muted/80"
-                      >
-                        <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        Done
-                      </Button>
-                    </div>
-                  </>
-                )}
+                <div className="flex-1 flex flex-col">
+                  <Textarea
+                    ref={isActive ? textareaRef : undefined}
+                    className="w-full h-full flex-1 min-h-0 m-0 p-3 font-mono text-xs resize-none text-foreground bg-transparent border border-border rounded-md placeholder:text-muted-foreground px-4"
+                    style={{ minHeight: '300px', maxHeight: '100%', height: '100%', overflowY: 'auto', alignSelf: 'stretch' }}
+                    value={tab.content}
+                    onChange={(e) => {
+                      setTabs(prevTabs => prevTabs.map(t => t.id === tab.id ? { ...t, content: e.target.value } : t));
+                    }}
+                    onKeyDown={isActive ? handleKeyDown : undefined}
+                    placeholder="Start writing your notes in markdown...\n\nUse ## Todo, ## Que, ## Done, and ## Inbox sections for task management."
+                  />
+                </div>
+                <div className="flex gap-2 items-center p-2 bg-card rounded-b-lg border border-t-0 border-border w-full mt-2">
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={moveLineUp}
+                      title="Move line up"
+                      className="text-[10px] h-7 bg-card border border-border text-foreground hover:bg-muted/80"
+                    >
+                      <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                      </svg>
+                      Move Up
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={moveLineDown}
+                      title="Move line down"
+                      className="text-xs h-7 bg-card border border-border text-foreground hover:bg-muted/80"
+                    >
+                      <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                      Move Down
+                    </Button>
+                  </div>
+                  <div className="w-px h-6 bg-border"></div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={promoteToTodo}
+                      title="Promote to Todo section"
+                      className="text-xs h-7 bg-primary text-primary-foreground hover:bg-primary/90"
+                    >
+                      <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                      </svg>
+                      Promote
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={demoteFromTodo}
+                      title="Demote to top of Inbox"
+                      className="text-xs h-7 bg-primary text-primary-foreground hover:bg-primary/90"
+                    >
+                      <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 17h-8m0 0V9m0 8l8-8 4 4 6-6" />
+                      </svg>
+                      Demote
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={deleteCurrentLine}
+                      title="Delete current line"
+                      className="text-xs h-7 bg-card border border-red-500/50 text-red-500 hover:bg-muted/80"
+                    >
+                      <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      Delete
+                    </Button>
+                  </div>
+                  <div className="flex-1"></div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={moveToDone}
+                    title="Move to top of Done section"
+                    className="text-xs h-7 bg-card border border-green-500/50 text-green-500 hover:bg-muted/80"
+                  >
+                    <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Done
+                  </Button>
+                </div>
                 {/* Footer */}
                 <div className="flex justify-between items-center px-4 py-3 border-t border-border bg-card rounded-b-md mt-2 gap-2">
                   {activeTab?.isDeletable && (
