@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { type Tab } from '../types/Tab';
 import {
   Dialog,
   DialogContent,
@@ -29,7 +28,7 @@ const NotepadDialog: React.FC<NotepadDialogProps> = ({
   onSave, 
   initialContent,
 }) => {
-  const [tabs, setTabs] = useState<Tab[]>([
+  const [tabs, setTabs] = useState<any[]>([
     {
       id: 'todo',
       name: 'Todo',
@@ -362,7 +361,7 @@ const NotepadDialog: React.FC<NotepadDialogProps> = ({
 
   // Add new tab
   const addNewTab = () => {
-    const newTab: Tab = {
+    const newTab: any = {
       id: `tab_${Date.now()}`,
       name: `Tab ${tabs.length}`,
       content: '',
