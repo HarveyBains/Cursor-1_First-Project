@@ -21,50 +21,6 @@ import { type Tab } from './types/Tab';
 import NotepadDialog from './components/NotepadDialog';
 import { v4 as uuidv4 } from 'uuid';
 
-// VersionEditor component
-interface VersionEditorProps {
-  initialVersion: string;
-  onSave: (version: string) => void;
-  onCancel: () => void;
-}
-
-const VersionEditor: React.FC<VersionEditorProps> = ({ initialVersion, onSave, onCancel }) => {
-  const [value, setValue] = useState(initialVersion);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
-    }
-  }, []);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSave(value.trim() || initialVersion);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      onCancel();
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="inline-flex items-center">
-      <input
-        ref={inputRef}
-        type="text"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onKeyDown={handleKeyDown}
-        onBlur={handleSubmit}
-        className="text-xs bg-background border border-border rounded px-1 py-0.5 text-foreground min-w-0 w-16"
-        style={{ width: `${Math.max(value.length * 0.6, 3)}rem` }}
-      />
-    </form>
-  );
-};
 
 // Utility to clean tags and ensure iconColor
 function cleanDreamTagsAndColors(dreams: DreamEntry[]) {
@@ -98,14 +54,6 @@ function App() {
   const [showDeleteAllConfirmDialog, setShowDeleteAllConfirmDialog] = useState(false);
   const [showNotepadDialog, setShowNotepadDialog] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
-  const [version, setVersion] = useState(() => {
-    return loadFromLocalStorage('app_version', 'v13.0.2');
-  });
-  const [isEditingVersion, setIsEditingVersion] = useState(false);
-  const [subheader, setSubheader] = useState(() => {
-    return loadFromLocalStorage('app_subheader', 'Record and organize your dreams');
-  });
-  const [isEditingSubheader, setIsEditingSubheader] = useState(false);
   // Multi-tab Notepad state
   const [notepadTabs, setNotepadTabs] = useState<Tab[]>(() => {
     // Try to load from localStorage or migrate from old single notepadContent
@@ -470,18 +418,6 @@ function App() {
     }
   }, [dreams, user]);
 
-  useEffect(() => {
-    saveToLocalStorage('app_version', version);
-  }, [version]);
-
-
-
-  useEffect(() => {
-    saveToLocalStorage('app_subheader', subheader);
-  }, [subheader]);
-
-  
-
 
 
   const [notepadTabsLoaded, setNotepadTabsLoaded] = useState(false);
@@ -704,25 +640,6 @@ function App() {
   };
 
 
-  const handleVersionEdit = (newVersion: string) => {
-    setVersion(newVersion);
-    setIsEditingVersion(false);
-  };
-
-  const handleVersionRightClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsEditingVersion(true);
-  };
-
-  const handleSubheaderEdit = (newSubheader: string) => {
-    setSubheader(newSubheader);
-    setIsEditingSubheader(false);
-  };
-
-  const handleSubheaderRightClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsEditingSubheader(true);
-  };
 
   const handleDeleteDream = async () => {
     if (dreamToDeleteId) {
@@ -1041,38 +958,8 @@ function App() {
               <div className="flex items-center justify-center gap-2 mb-1">
                 <h1 className="text-lg font-semibold text-primary truncate max-w-full">Dream-Notions</h1>
               </div>
-              <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-                {isEditingSubheader ? (
-                  <VersionEditor
-                    initialVersion={subheader}
-                    onSave={handleSubheaderEdit}
-                    onCancel={() => setIsEditingSubheader(false)}
-                  />
-                ) : (
-                  <span
-                    onContextMenu={handleSubheaderRightClick}
-                    className="cursor-pointer hover:text-primary transition-colors"
-                    title="Right-click to edit description"
-                  >
-                    {subheader}
-                  </span>
-                )}
-                <Separator orientation="vertical" className="h-3" />
-                {isEditingVersion ? (
-                  <VersionEditor
-                    initialVersion={version}
-                    onSave={handleVersionEdit}
-                    onCancel={() => setIsEditingVersion(false)}
-                  />
-                ) : (
-                  <span
-                    onContextMenu={handleVersionRightClick}
-                    className="cursor-pointer hover:text-primary transition-colors"
-                    title="Right-click to edit version"
-                  >
-                    {version}
-                  </span>
-                )}
+              <div className="text-xs text-muted-foreground">
+                Your Dream Notions Organizer
               </div>
             </div>
 

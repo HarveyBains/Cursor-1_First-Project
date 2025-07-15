@@ -51,6 +51,23 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
     return '';
   });
 
+  // States for text cleanup feature
+  const [showCleanupModal, setShowCleanupModal] = useState(false);
+  const [cleanedText, setCleanedText] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ visible: boolean; x: number; y: number }>({ 
+    visible: false, x: 0, y: 0 
+  });
+
+  // Close context menu when clicking elsewhere
+  useEffect(() => {
+    const handleClick = () => setContextMenu({ visible: false, x: 0, y: 0 });
+    if (contextMenu.visible) {
+      document.addEventListener('click', handleClick);
+      return () => document.removeEventListener('click', handleClick);
+    }
+  }, [contextMenu.visible]);
+
   // When editing, update date/time state if dreamToEdit changes
   useEffect(() => {
     if (dreamToEdit && dreamToEdit.timestamp) {
@@ -59,6 +76,57 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
       setEditTime(d.toTimeString().slice(0, 5));
     }
   }, [dreamToEdit]);
+
+  // Handle right-click context menu for description textarea
+  const handleDescriptionContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (description.trim()) {
+      setContextMenu({
+        visible: true,
+        x: e.clientX,
+        y: e.clientY
+      });
+    }
+  };
+
+  // Clean up text using AI (placeholder - would need actual AI integration)
+  const handleCleanupText = async () => {
+    setContextMenu({ visible: false, x: 0, y: 0 });
+    setIsProcessing(true);
+    setShowCleanupModal(true);
+    
+    try {
+      // Simulated AI cleanup - in real implementation, this would call an AI service
+      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate processing time
+      
+      // Mock AI enhancement - clean up text
+      const mockCleanedText = description
+        .replace(/\bi\b/g, 'I') // Capitalize I
+        .replace(/(\. *)([a-z])/g, (_, period, letter) => period + letter.toUpperCase()) // Capitalize after periods
+        .replace(/\s+/g, ' ') // Remove extra spaces
+        .replace(/([.!?])\s*([A-Z])/g, '$1 $2') // Proper spacing after punctuation
+        .trim();
+      
+      // Add some narrative improvement
+      const enhancedText = mockCleanedText
+        .replace(/^/, 'In my dream, ') // Add dream context
+        .replace(/\.$/, '. The dream felt vivid and meaningful.'); // Add closing
+      
+      setCleanedText(enhancedText);
+    } catch (error) {
+      console.error('Error cleaning up text:', error);
+      setCleanedText('Error processing text. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Replace original text with cleaned version
+  const handleReplaceText = () => {
+    setDescription(cleanedText);
+    setShowCleanupModal(false);
+    setCleanedText('');
+  };
 
   // When saving, use the edited date/time if present
   const handleSave = () => {
@@ -244,7 +312,7 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-card p-6 rounded-lg shadow-xl w-full max-w-md border border-border">
+      <div className="bg-card p-6 rounded-lg shadow-xl w-full max-w-4xl border border-border">
         <h2 className="text-xl mb-4 text-foreground text-center">{dreamToEdit ? 'Edit Dream' : 'Add New Dream'}</h2>
         <form onSubmit={handleSubmit}>
           <div className="mb-4" style={{ display: 'none' }}>
@@ -293,14 +361,15 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
               </div>
             )}
           </div>
-          <div className="mb-4">
+          <div className="mb-4 relative">
             <textarea
               id="description"
               rows={12}
               className="w-full p-2 border border-border rounded-md bg-background text-foreground text-sm"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Description"
+              onContextMenu={handleDescriptionContextMenu}
+              placeholder="Description (right-click for AI cleanup when you have text)"
             ></textarea>
           </div>
           <div className="mb-4">
@@ -453,6 +522,84 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
             </button>
           </div>
         </form>
+
+        {/* Context Menu for Description Textarea */}
+        {contextMenu.visible && (
+          <div
+            className="fixed bg-background border border-border rounded-md shadow-lg py-1 z-50 min-w-[160px]"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={handleCleanupText}
+              className="w-full px-3 py-2 text-left text-sm hover:bg-muted transition-colors flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              Clean up text with AI
+            </button>
+          </div>
+        )}
+
+        {/* Text Cleanup Modal */}
+        {showCleanupModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-card p-6 rounded-lg shadow-xl w-full max-w-4xl border border-border max-h-[80vh] overflow-y-auto">
+              <h3 className="text-lg mb-4 text-foreground text-center">AI Text Cleanup</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                {/* Original Text */}
+                <div>
+                  <h4 className="text-sm font-medium text-foreground mb-2">Original Text:</h4>
+                  <div className="p-3 border border-border rounded-md bg-muted/50 text-sm max-h-60 overflow-y-auto">
+                    {description}
+                  </div>
+                </div>
+                
+                {/* Cleaned Text */}
+                <div>
+                  <h4 className="text-sm font-medium text-foreground mb-2">
+                    Cleaned Text:
+                    {isProcessing && (
+                      <span className="ml-2 text-xs text-muted-foreground">Processing...</span>
+                    )}
+                  </h4>
+                  <div className="p-3 border border-border rounded-md bg-background text-sm max-h-60 overflow-y-auto">
+                    {isProcessing ? (
+                      <div className="flex items-center justify-center h-20">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                      </div>
+                    ) : (
+                      <div className="whitespace-pre-wrap">{cleanedText}</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCleanupModal(false);
+                    setCleanedText('');
+                  }}
+                  className="px-4 py-2 rounded-md text-sm font-medium transition-colors border border-input bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
+                >
+                  Keep Original
+                </button>
+                <button
+                  type="button"
+                  onClick={handleReplaceText}
+                  disabled={isProcessing || !cleanedText}
+                  className="bg-primary text-primary-foreground px-4 py-2 rounded hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Replace with Cleaned Version
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

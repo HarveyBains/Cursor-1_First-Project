@@ -8,7 +8,6 @@ A Dream-Notions web application for noting and organizing dreams using:
 - Vite
 - Firebase integration
 
-
 ## Key Documents
 - **Design-Plan-Prompt.md** - Original project requirements and vision
 - **Current-State-PRD.md** - Current features and technical stack
@@ -29,3 +28,4 @@ A Dream-Notions web application for noting and organizing dreams using:
 ## Notes
 - Always read CLAUDE.md on session startup
 - Always run, 'npm run build' after every UI change to check for application errors
+- If port 5173 is in use then restart it.
