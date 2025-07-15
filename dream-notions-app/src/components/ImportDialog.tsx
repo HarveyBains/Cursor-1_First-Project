@@ -82,7 +82,9 @@ const ImportDialog: React.FC<ImportDialogProps> = ({ isOpen, onClose, onImport, 
         setImportText('');
         setParseStatus('idle');
         setParsedCount(0);
-        onClose();
+        // Update local state immediately so records appear without refresh
+        // (Assumes onImport updates the main app state)
+        // Do not close the dialog automatically
       }, 1500);
       
     } catch (error) {

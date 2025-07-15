@@ -149,6 +149,9 @@ function App() {
   // Track pending displayOrder changes for race condition handling
   const [pendingDisplayOrderMap, setPendingDisplayOrderMap] = useState<Record<string, number>>({});
 
+  // Track if dreams are loaded from Firebase
+  const [dreamsReady, setDreamsReady] = useState(false);
+
   // Mouse event handlers for dragging
   const handleDebugPanelMouseDown = (e: React.MouseEvent) => {
     setDragging(true);
@@ -483,20 +486,13 @@ function App() {
   // Manual Firebase sync: fetch all dreams on load or refresh
   const fetchDreamsFromFirebase = useCallback(async () => {
     if (user) {
-      addDebugLog(`🔥 Fetching dreams from Firebase for user: ${user.uid}`);
-      try {
-        const dreams = await firestoreService.getUserDreams(user.uid);
-        setDreams(cleanDreamTagsAndColors(dreams));
-        addDebugLog(`📥 Downloaded ${dreams.length} dreams from Firebase.`);
-      } catch (error) {
-        addDebugLog('❌ Error downloading dreams from Firebase');
-      }
-    } else {
-      addDebugLog('🔥 User signed out, loading from localStorage.');
-      const localDreams = loadFromLocalStorage('dreams_local', []);
-      setDreams(cleanDreamTagsAndColors(localDreams));
+      addDebugLog('🔄 Fetching dreams from Firebase...');
+      const dreamsFromDb = await firestoreService.getUserDreams(user.uid);
+      setDreams(dreamsFromDb);
+      setDreamsReady(true);
+      addDebugLog(`📥 Received ${dreamsFromDb.length} dreams from Firebase.`);
     }
-  }, [user, addDebugLog]);
+  }, [user]);
 
   // Fetch dreams on initial load or when user changes
   useEffect(() => {
@@ -707,6 +703,8 @@ function App() {
           // Update existing dream
           addDebugLog(`✏️ Updating dream: ${newDream.name}`);
           await firestoreService.updateDream(newDream.id, newDream);
+          // Update local state immediately
+          setDreams(prevDreams => prevDreams.map(dream => dream.id === newDream.id ? newDream : dream));
           addDebugLog(`✅ Dream updated successfully`);
         } else {
           // Add new dream
@@ -715,6 +713,8 @@ function App() {
             ...newDream,
             timestamp: Date.now()
           }, user.uid);
+          // Add to local state immediately
+          setDreams(prevDreams => [...prevDreams, { ...newDream, id: dreamId, timestamp: Date.now() }]);
           addDebugLog(`✅ Dream saved with ID: ${dreamId}`);
         }
       } catch (error) {
@@ -916,127 +916,91 @@ function App() {
     ).length;
   };
 
-  const moveDream = useCallback((displayedFrom: number, displayedTo: number) => {
-    setDreams((prevDreams) => {
-      // Get the current filtered/sorted list as displayed
-      const filteredDreams = (() => {
-        let currentDreams = prevDreams.filter(dream => {
-          if (activeFilter === 'favorites') {
-            return dream.isFavorite;
-          } else if (activeFilter === 'recents') {
-            const twentyFourHoursAgo = Date.now() - (24 * 60 * 60 * 1000);
-            return dream.timestamp >= twentyFourHoursAgo;
-          }
-          return true;
-        });
-        if (activeTagFilter) {
-          currentDreams = currentDreams.filter(dream => 
-            dream.tags?.some(tag => tag.startsWith(activeTagFilter))
-          );
+  // Helper to get currently displayed dreams (filtered and sorted)
+  const getDisplayedDreams = (dreamsList: DreamEntry[]) => {
+    let currentDreams = dreamsList.filter(dream => {
+      if (activeFilter === 'favorites') {
+        return dream.isFavorite;
+      } else if (activeFilter === 'recents') {
+        const twentyFourHoursAgo = Date.now() - (24 * 60 * 60 * 1000);
+        return dream.timestamp >= twentyFourHoursAgo;
+      }
+      return true;
+    });
+    if (activeTagFilter) {
+      currentDreams = currentDreams.filter(dream =>
+        dream.tags?.some(tag => tag.startsWith(activeTagFilter))
+      );
+    }
+    // Always group by date, then sort by displayOrder (if set for all) or timestamp (latest first)
+    const groupedByDate = new Map<string, DreamEntry[]>();
+    currentDreams.forEach(dream => {
+      const dateKey = new Date(dream.timestamp).toDateString();
+      if (!groupedByDate.has(dateKey)) {
+        groupedByDate.set(dateKey, []);
+      }
+      groupedByDate.get(dateKey)!.push(dream);
+    });
+    // Sort date groups (newest or oldest first)
+    const sortedDateKeys = Array.from(groupedByDate.keys()).sort((a, b) => {
+      const dateA = new Date(a).getTime();
+      const dateB = new Date(b).getTime();
+      return sortOrder === 'newest' ? dateB - dateA : dateA - dateB;
+    });
+    // Sort within each group by displayOrder (if set for all) or timestamp (latest first)
+    const sortedGroups = sortedDateKeys.map(dateKey => {
+      const group = groupedByDate.get(dateKey)!;
+      const allHaveDisplayOrder = group.every(d => d.displayOrder !== undefined);
+      return group.sort((a, b) => {
+        if (allHaveDisplayOrder) {
+          return a.displayOrder! - b.displayOrder!;
         }
-        // Always group by date, then sort by displayOrder (if set) or timestamp within each group
-        const groupedByDate = new Map<string, DreamEntry[]>();
-        currentDreams.forEach(dream => {
-          const dateKey = new Date(dream.timestamp).toDateString();
-          if (!groupedByDate.has(dateKey)) {
-            groupedByDate.set(dateKey, []);
-          }
-          groupedByDate.get(dateKey)!.push(dream);
-        });
-        // Sort date groups (newest or oldest first)
-        const sortedDateKeys = Array.from(groupedByDate.keys()).sort((a, b) => {
-          const dateA = new Date(a).getTime();
-          const dateB = new Date(b).getTime();
-          return sortOrder === 'newest' ? dateB - dateA : dateA - dateB;
-        });
-        // Sort within each group by displayOrder (if set for all) or timestamp (latest first)
-        const sortedGroups = sortedDateKeys.map(dateKey => {
-          const group = groupedByDate.get(dateKey)!;
-          // If all dreams in the group have displayOrder, sort by it; otherwise, by timestamp DESC
-          const allHaveDisplayOrder = group.every(d => d.displayOrder !== undefined);
-          return group.sort((a, b) => {
-            if (allHaveDisplayOrder) {
-              return a.displayOrder! - b.displayOrder!;
-            }
-            return b.timestamp - a.timestamp; // latest time first
-          });
-        });
-        return sortedGroups.flat();
-      })();
-
-      // Map displayed indices to actual indices in prevDreams
-      const fromDream = filteredDreams[displayedFrom];
-      const toDream = filteredDreams[displayedTo];
-      if (!fromDream || !toDream) return prevDreams;
-
-      const fromIndex = prevDreams.findIndex(d => d.id === fromDream.id);
-      const toIndex = prevDreams.findIndex(d => d.id === toDream.id);
-      if (fromIndex === -1 || toIndex === -1) return prevDreams;
-
-      // Only allow moving within the same date group
-      const fromDate = new Date(fromDream.timestamp).toDateString();
-      const toDate = new Date(toDream.timestamp).toDateString();
-      if (fromDate !== toDate) return prevDreams;
-
-      // Get all dreams in the same date group
-      const dateGroup = prevDreams.filter(d => new Date(d.timestamp).toDateString() === fromDate);
-      // Get their indices in prevDreams
-      const dateGroupIndices = dateGroup.map(d => prevDreams.findIndex(x => x.id === d.id));
-      // Get their order as in prevDreams
-      const orderedDateGroup = dateGroupIndices.map(i => prevDreams[i]);
-      // Find the positions of fromDream and toDream within the date group
-      const fromIdxInGroup = orderedDateGroup.findIndex(d => d.id === fromDream.id);
-      const toIdxInGroup = orderedDateGroup.findIndex(d => d.id === toDream.id);
-      if (fromIdxInGroup === -1 || toIdxInGroup === -1) return prevDreams;
-      // Move within the date group
-      const newDateGroup = [...orderedDateGroup];
-      const [removed] = newDateGroup.splice(fromIdxInGroup, 1);
-      newDateGroup.splice(toIdxInGroup, 0, removed);
-      // Update displayOrder for the group as 1-based sequence
-      newDateGroup.forEach((d, i) => { d.displayOrder = i + 1; });
-      // Rebuild the dreams array with the new group order
-      const newDreams = [...prevDreams];
-      dateGroupIndices.forEach((dreamIdx, i) => {
-        newDreams[dreamIdx] = { ...newDateGroup[i] };
+        return b.timestamp - a.timestamp;
       });
+    });
+    return sortedGroups.flat();
+  };
 
-      // After reordering, persist the new order
-      const affectedDreams = newDateGroup.filter((d, i) => d.displayOrder !== orderedDateGroup[i].displayOrder || d.id !== orderedDateGroup[i].id);
-      if (affectedDreams.length > 0) {
-        // Update localDisplayOrderMap for optimistic update
-        setLocalDisplayOrderMap(prevMap => {
-          const newMap = { ...prevMap };
-          affectedDreams.forEach(dream => {
-            if (typeof dream.displayOrder === 'number') {
-              newMap[dream.id] = dream.displayOrder;
-            }
-          });
-          return newMap;
-        });
-        // Update pendingDisplayOrderMap for race condition handling
-        setPendingDisplayOrderMap(prevMap => {
-          const newMap = { ...prevMap };
-          affectedDreams.forEach(dream => {
-            if (typeof dream.displayOrder === 'number') {
-              newMap[dream.id] = dream.displayOrder;
-            }
-          });
-          return newMap;
-        });
-        if (user && typeof firestoreService.updateDream === 'function') {
-          affectedDreams.forEach(dream => {
-            firestoreService.updateDream(dream.id, { displayOrder: dream.displayOrder })
-              .then(() => addDebugLog(`⬆️ [Dreams] Saved displayOrder for dream '${dream.name}' (Seq #${dream.displayOrder}) to Firebase`))
-              .catch(err => addDebugLog(`❌ [Dreams] Failed to save displayOrder for dream '${dream.name}': ${err}`));
-          });
-        } else {
-          saveToLocalStorage('dreams_local', newDreams);
-          addDebugLog(`⬆️ [Dreams] Saved displayOrder for ${affectedDreams.length} dreams to localStorage`);
-        }
+  const moveDream = useCallback((displayedFrom: number, displayedTo: number) => {
+    if (!dreamsReady) {
+      addDebugLog('⏳ Dreams not ready yet, move ignored.');
+      return;
+    }
+    setDreams(prevDreams => {
+      // Get the currently displayed dreams (filtered/sorted)
+      const displayedDreams = getDisplayedDreams(prevDreams);
+      if (
+        displayedFrom < 0 ||
+        displayedTo < 0 ||
+        displayedFrom >= displayedDreams.length ||
+        displayedTo >= displayedDreams.length ||
+        displayedFrom === displayedTo
+      ) {
+        addDebugLog(`[Move] Invalid move: from ${displayedFrom} to ${displayedTo}`);
+        return prevDreams;
+      }
+      // Find the two dreams to swap
+      const dreamA = displayedDreams[displayedFrom];
+      const dreamB = displayedDreams[displayedTo];
+      if (!dreamA || !dreamB) return prevDreams;
+      // Swap their displayOrder
+      const newDisplayOrderA = dreamB.displayOrder;
+      const newDisplayOrderB = dreamA.displayOrder;
+      // Update in the main dreams array
+      const newDreams = prevDreams.map(dream => {
+        if (dream.id === dreamA.id) return { ...dream, displayOrder: newDisplayOrderA };
+        if (dream.id === dreamB.id) return { ...dream, displayOrder: newDisplayOrderB };
+        return dream;
+      });
+      // Save only the two changed dreams to Firebase (if authenticated)
+      if (user) {
+        firestoreService.updateDream(dreamA.id, { ...dreamA, displayOrder: newDisplayOrderA });
+        firestoreService.updateDream(dreamB.id, { ...dreamB, displayOrder: newDisplayOrderB });
+        addDebugLog(`⬆️ [Dreams] Swapped displayOrder: '${dreamA.name}' (Seq #${newDisplayOrderA}) <-> '${dreamB.name}' (Seq #${newDisplayOrderB}) to Firebase`);
       }
       return newDreams;
     });
-  }, [activeFilter, activeTagFilter, sortOrder, user]);
+  }, [dreamsReady, user, getDisplayedDreams, addDebugLog]);
 
   const handleRenameTag = (oldTag: string, newTag: string) => {
     setDreams(prevDreams => prevDreams.map(dream => ({
@@ -1348,30 +1312,26 @@ function App() {
                   </svg>
                   <span className="hidden sm:inline">Export</span>
                 </button>
+                {/* Notepad Button */}
+                <button
+                  onClick={() => setShowNotepadDialog(true)}
+                  className="px-3 py-2 rounded-lg text-xs transition-colors font-medium flex items-center gap-1.5 border bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                  <span className="hidden sm:inline">Notepad</span>
+                </button>
                 {/* Debug Button */}
-                <Button
-                  variant="outline"
-                  size="sm"
+                <button
                   onClick={() => setDebugPanelOpen(true)}
-                  className="flex items-center gap-2"
+                  className="px-3 py-2 rounded-lg text-xs transition-colors font-medium flex items-center gap-1.5 border bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 ml-2"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V4a2 2 0 10-4 0v1.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 13v-2a7 7 0 00-14 0v2m14 0a2 2 0 01-2 2h-2a2 2 0 01-2-2m6 0a2 2 0 01-2 2h-2a2 2 0 01-2-2m6 0V9a2 2 0 00-2-2m-6 0V9a2 2 0 002 2m0 0a2 2 0 002-2V7a2 2 0 00-2-2m0 0a2 2 0 00-2 2v2a2 2 0 002 2z" />
                   </svg>
-                  Debug
-                </Button>
-                {/* Refresh Button */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={fetchDreamsFromFirebase}
-                  className="flex items-center gap-2"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582M20 20v-5h-.581M5 19A9 9 0 0119 5M5 5l14 14" />
-                  </svg>
-                  Refresh
-                </Button>
+                  <span className="hidden sm:inline">Debug</span>
+                </button>
               </div>
             </div>
           </div>
