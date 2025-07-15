@@ -177,38 +177,6 @@ function App() {
     };
   }, [dragging]);
 
-  // Add notepadTabs state and setter
-  // const [notepadTabs, setNotepadTabs] = useState<Tab[]>(() => {
-  //   // Try to load from localStorage or use a default tab
-  //   const saved = loadFromLocalStorage('notepad_tabs', null);
-  //   if (Array.isArray(saved) && saved.length > 0) {
-  //     return saved;
-  //   }
-  //   return [{ id: 'todo', name: 'Todo', content: '', isDeletable: false }];
-  // });
-
-  // Subscribe to notepad tabs from Firebase or localStorage
-  // useEffect(() => {
-  //   let unsubscribe: (() => void) | undefined;
-  //   if (user) {
-  //     unsubscribe = firestoreService.subscribeToNotepadTabs?.(user.uid, (tabs: Tab[]) => {
-  //       setNotepadTabs(Array.isArray(tabs) && tabs.length > 0 ? tabs : [{ id: 'todo', name: 'Todo', content: '', isDeletable: false }]);
-  //     });
-  //   } else {
-  //     const saved = loadFromLocalStorage('notepad_tabs', null);
-  //     setNotepadTabs(Array.isArray(saved) && saved.length > 0 ? saved : [{ id: 'todo', name: 'Todo', content: '', isDeletable: false }]);
-  //   }
-  //   return () => {
-  //     if (unsubscribe) unsubscribe();
-  //   };
-  // }, [user]);
-
-  // Save notepadTabs to localStorage for unauthenticated users
-  // useEffect(() => {
-  //   if (!user) {
-  //     saveToLocalStorage('notepad_tabs', notepadTabs);
-  //   }
-  // }, [notepadTabs, user]);
 
 
   const allUniqueTags = useMemo(() => {
@@ -515,25 +483,6 @@ function App() {
   
 
 
-  // Load notepad content on mount or when user changes
-  useEffect(() => {
-    if (user) {
-      firestoreService.getNotepadContent(user.uid).then(_ => {
-        // setNotepadContent(content); // Removed as per edit hint
-      });
-    } else {
-      // setNotepadContent(localStorage.getItem('notepad_content') || ''); // Removed as per edit hint
-    }
-  }, [user]);
-
-  // Save notepad content to Firestore or localStorage when it changes
-  useEffect(() => {
-    if (user) {
-      // firestoreService.saveNotepadContent(notepadContent, user.uid); // Removed as per edit hint
-    } else {
-      // localStorage.setItem('notepad_content', notepadContent); // Removed as per edit hint
-    }
-  }, [user]);
 
   const [notepadTabsLoaded, setNotepadTabsLoaded] = useState(false);
 
@@ -865,15 +814,6 @@ function App() {
     setShowExportDialog(false);
   };
 
-  // const handleSaveNotepad = (tabs: Tab[]) => {
-  //   setNotepadTabs(tabs);
-  //   setShowNotepadDialog(false);
-
-  //   if (user) {
-  //     addDebugLog('📝 Saving notepad tabs to Firebase...');
-  //     firestoreService.saveNotepadTabs(tabs, user.uid);
-  //   }
-  // };
 
   const handleDeleteTag = (tagToDelete: string) => {
     setDreams(prevDreams => 
