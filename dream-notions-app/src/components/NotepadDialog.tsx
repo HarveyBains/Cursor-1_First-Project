@@ -509,9 +509,9 @@ const NotepadDialog: React.FC<NotepadDialogProps> = ({
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
         </Button>
       </div>
-      <div className="flex-1 flex flex-col min-h-0" style={{overflow: 'hidden'}}>
+      <div className="flex-1 flex flex-col min-h-0 h-full" style={{overflow: 'hidden'}}>
         {/* Tab Navigation using shadcn Tabs */}
-        <Tabs value={activeTabId} onValueChange={setActiveTabId} className="flex-1 flex flex-col h-full">
+        <Tabs value={activeTabId} onValueChange={setActiveTabId} className="flex-1 flex flex-col h-full min-h-0">
           <div className="flex items-center justify-between px-4 pt-2 flex-shrink-0">
             <div className="flex items-center gap-4">
               <TabsList className="h-auto p-0 bg-transparent border-none shadow-none">
@@ -576,24 +576,25 @@ const NotepadDialog: React.FC<NotepadDialogProps> = ({
               </svg>
             </Button>
           </div>
-          {tabs.map((tab) => {
-            const isActive = tab.id === activeTabId;
+          {/* Only render the active tab's content to avoid layout conflicts */}
+          {(() => {
+            const tab = tabs.find(t => t.id === activeTabId);
+            if (!tab) return null;
             return (
               <TabsContent
                 key={tab.id}
                 value={tab.id}
-                className="flex flex-col flex-1 h-full p-0 m-0 bg-card"
+                className="flex-1 flex flex-col h-full min-h-0 p-0 m-0 bg-card"
               >
-                <div className="flex-1 flex flex-col h-full">
+                <div className="flex-1 flex flex-col h-full min-h-0">
                   <Textarea
-                    ref={isActive ? textareaRef : undefined}
-                    className="w-full flex-1 p-3 font-mono text-xs resize-none text-foreground bg-transparent border-0 rounded-none placeholder:text-muted-foreground focus:outline-none focus:ring-0"
-                    style={{ height: '100%', overflowY: 'auto' }}
+                    ref={textareaRef}
+                    className="w-full flex-1 min-h-0 p-3 font-mono text-xs resize-none text-foreground bg-transparent border-0 rounded-none placeholder:text-muted-foreground focus:outline-none focus:ring-0"
                     value={tab.content}
                     onChange={(e) => {
                       setTabs(prevTabs => prevTabs.map(t => t.id === tab.id ? { ...t, content: e.target.value } : t));
                     }}
-                    onKeyDown={isActive ? handleKeyDown : undefined}
+                    onKeyDown={handleKeyDown}
                     placeholder="Start writing your notes in markdown...\n\nUse ## Todo, ## Que, ## Done, and ## Inbox sections for task management."
                   />
                 </div>
@@ -637,9 +638,7 @@ const NotepadDialog: React.FC<NotepadDialogProps> = ({
                       Done
                     </Button>
                   </div>
-                  
                   <div className="w-px h-6 bg-border"></div>
-                  
                   {/* Move Up, Move Down */}
                   <div className="flex items-center gap-2">
                     <Button
@@ -667,12 +666,10 @@ const NotepadDialog: React.FC<NotepadDialogProps> = ({
                       Move Down
                     </Button>
                   </div>
-                  
                   {/* Spacer */}
                   <div className="flex-1"></div>
-                  
                   {/* Delete Tab (if deletable) */}
-                  {activeTab?.isDeletable && (
+                  {tab.isDeletable && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -686,7 +683,6 @@ const NotepadDialog: React.FC<NotepadDialogProps> = ({
                       Delete Tab
                     </Button>
                   )}
-                  
                   {/* Save Button */}
                   <Button
                     onClick={handleSave}
@@ -701,7 +697,7 @@ const NotepadDialog: React.FC<NotepadDialogProps> = ({
                 </div>
               </TabsContent>
             );
-          })}
+          })()}
         </Tabs>
       </div>
     </div>

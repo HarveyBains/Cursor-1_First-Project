@@ -1132,7 +1132,6 @@ function App() {
                 size="sm"
                 onClick={toggleTheme}
                 className="p-2"
-                title={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
               >
                 {isDarkMode ? (
                   <svg className="w-4 h-4 text-purple-400" fill="currentColor" viewBox="0 0 20 20">
@@ -1144,18 +1143,12 @@ function App() {
                   </svg>
                 )}
               </Button>
-              <Badge variant="secondary" className="font-mono text-xs">
-                shadcn/ui
-              </Badge>
             </div>
 
             {/* Center - App title with version in description */}
             <div className="flex-1 text-center px-4 min-w-0">
               <div className="flex items-center justify-center gap-2 mb-1">
                 <h1 className="text-lg font-semibold text-primary truncate max-w-full">Dream-Notions</h1>
-                <Badge variant="outline" className="text-xs">
-                  {user ? 'Firebase' : 'Local'}
-                </Badge>
               </div>
               <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
                 {isEditingSubheader ? (
