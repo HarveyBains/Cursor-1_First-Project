@@ -189,7 +189,7 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
       <div className="bg-card p-6 rounded-lg shadow-xl w-full max-w-md border border-border">
         <h2 className="text-xl mb-4 text-foreground text-center">{dreamToEdit ? 'Edit Dream' : 'Add New Dream'}</h2>
         <form onSubmit={handleSubmit}>
-          <div className="mb-4">
+          <div className="mb-4" style={{ display: 'none' }}>
             <input
               type="date"
               id="dreamDate"
