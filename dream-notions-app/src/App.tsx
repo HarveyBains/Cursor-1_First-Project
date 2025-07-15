@@ -5,12 +5,11 @@ import DreamForm from './components/DreamForm';
 import DeleteConfirmDialog from './components/DeleteConfirmDialog';
 import RenameTagDialog from './components/RenameTagDialog';
 import TagBreadcrumbs from './components/TagBreadcrumbs';
-import NotepadDialog from './components/NotepadDialog';
 import ExportDialog from './components/ExportDialog';
 import { DragDropProvider } from './components/DragDropProvider';
 import { saveToLocalStorage, loadFromLocalStorage } from './utils/localStorageUtils';
 import { exportDreams } from './utils/importExportUtils';
-import { firestoreService } from './services/firestore-service';
+import { firestoreService, FirestoreService } from './services/firestore-service';
 import './index.css';
 import type { DreamEntry } from './types/DreamEntry';
 import { useAuth } from './components/AuthProvider';
@@ -20,6 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { type Tab } from './types/Tab';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
+import NotepadDialog from './components/NotepadDialog';
 
 // VersionEditor component
 interface VersionEditorProps {
@@ -159,37 +159,37 @@ function App() {
   }, [dragging]);
 
   // Add notepadTabs state and setter
-  const [notepadTabs, setNotepadTabs] = useState<Tab[]>(() => {
-    // Try to load from localStorage or use a default tab
-    const saved = loadFromLocalStorage('notepad_tabs', null);
-    if (Array.isArray(saved) && saved.length > 0) {
-      return saved;
-    }
-    return [{ id: 'todo', name: 'Todo', content: '', isDeletable: false }];
-  });
+  // const [notepadTabs, setNotepadTabs] = useState<Tab[]>(() => {
+  //   // Try to load from localStorage or use a default tab
+  //   const saved = loadFromLocalStorage('notepad_tabs', null);
+  //   if (Array.isArray(saved) && saved.length > 0) {
+  //     return saved;
+  //   }
+  //   return [{ id: 'todo', name: 'Todo', content: '', isDeletable: false }];
+  // });
 
   // Subscribe to notepad tabs from Firebase or localStorage
-  useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
-    if (user) {
-      unsubscribe = firestoreService.subscribeToNotepadTabs?.(user.uid, (tabs: Tab[]) => {
-        setNotepadTabs(Array.isArray(tabs) && tabs.length > 0 ? tabs : [{ id: 'todo', name: 'Todo', content: '', isDeletable: false }]);
-      });
-    } else {
-      const saved = loadFromLocalStorage('notepad_tabs', null);
-      setNotepadTabs(Array.isArray(saved) && saved.length > 0 ? saved : [{ id: 'todo', name: 'Todo', content: '', isDeletable: false }]);
-    }
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
-  }, [user]);
+  // useEffect(() => {
+  //   let unsubscribe: (() => void) | undefined;
+  //   if (user) {
+  //     unsubscribe = firestoreService.subscribeToNotepadTabs?.(user.uid, (tabs: Tab[]) => {
+  //       setNotepadTabs(Array.isArray(tabs) && tabs.length > 0 ? tabs : [{ id: 'todo', name: 'Todo', content: '', isDeletable: false }]);
+  //     });
+  //   } else {
+  //     const saved = loadFromLocalStorage('notepad_tabs', null);
+  //     setNotepadTabs(Array.isArray(saved) && saved.length > 0 ? saved : [{ id: 'todo', name: 'Todo', content: '', isDeletable: false }]);
+  //   }
+  //   return () => {
+  //     if (unsubscribe) unsubscribe();
+  //   };
+  // }, [user]);
 
   // Save notepadTabs to localStorage for unauthenticated users
-  useEffect(() => {
-    if (!user) {
-      saveToLocalStorage('notepad_tabs', notepadTabs);
-    }
-  }, [notepadTabs, user]);
+  // useEffect(() => {
+  //   if (!user) {
+  //     saveToLocalStorage('notepad_tabs', notepadTabs);
+  //   }
+  // }, [notepadTabs, user]);
 
 
   const allUniqueTags = useMemo(() => {
@@ -480,13 +480,13 @@ function App() {
           addDebugLog('✅ Local dreams migrated and cleared.');
         }
 
-        const localNotepad = loadFromLocalStorage('notepad_tabs', []);
-        if (localNotepad.length > 0) {
-          addDebugLog(`🔄 Migrating ${localNotepad.length} local notepad tabs to Firebase...`);
-          await firestoreService.saveNotepadTabs(localNotepad, user.uid);
-          localStorage.removeItem('notepad_tabs');
-          addDebugLog('✅ Local notepad migrated and cleared.');
-        }
+        // const localNotepad = loadFromLocalStorage('notepad_tabs', []);
+        // if (localNotepad.length > 0) {
+        //   addDebugLog(`🔄 Migrating ${localNotepad.length} local notepad tabs to Firebase...`);
+        //   await firestoreService.saveNotepadTabs(localNotepad, user.uid);
+        //   localStorage.removeItem('notepad_tabs');
+        //   addDebugLog('✅ Local notepad migrated and cleared.');
+        // }
       };
 
       migrateLocalData();
@@ -497,44 +497,44 @@ function App() {
         setDreams(cleanDreamTagsAndColors(firestoreDreams));
       });
 
-      notepadUnsubscribe = firestoreService.subscribeToNotepadContent(user.uid, (content) => {
-        addDebugLog(`📥 Received notepad content from Firebase.`);
-        setNotepadContent(content);
-      });
+      // notepadUnsubscribe = firestoreService.subscribeToNotepadContent(user.uid, (content) => {
+      //   addDebugLog(`📥 Received notepad content from Firebase.`);
+      //   setNotepadContent(content);
+      // });
 
     } else {
       // User is signed out, load from localStorage
       addDebugLog('🔥 User signed out, loading from localStorage.');
       const localDreams = loadFromLocalStorage('dreams_local', []);
       setDreams(cleanDreamTagsAndColors(localDreams));
-      const localNotepad = loadFromLocalStorage('notepad_content', '');
-      // Set default template if notepad is empty
-      const defaultTemplate = `## Todo
-- Sample task 1
-- Sample task 2
+      // const localNotepad = loadFromLocalStorage('notepad_content', '');
+      // // Set default template if notepad is empty
+      // const defaultTemplate = `## Todo
+      // - Sample task 1
+      // - Sample task 2
 
-## Que
-- Future consideration 1
-- Future consideration 2
+      // ## Que
+      // - Future consideration 1
+      // - Future consideration 2
 
-## Done
-- Completed task 1
-- Completed task 2
+      // ## Done
+      // - Completed task 1
+      // - Completed task 2
 
-## Inbox
-- Random thought 1
-- Random thought 2
-- Ideas go here before being promoted to Todo
+      // ## Inbox
+      // - Random thought 1
+      // - Random thought 2
+      // - Ideas go here before being promoted to Todo
 
-# Usage
-- Use 📈 Promote to move any line to bottom of Todo
-- Use 📉 Demote to move lines from Todo back to top of Inbox  
-- Use ✅ Done to move any line to top of Done section
-- Use ⬆️⬇️ Move Up/Down to reorder within sections
-- All tasks automatically get hyphen prefixes
-- Blank lines are automatically added above ## headings when saving`;
+      // # Usage
+      // - Use 📈 Promote to move any line to bottom of Todo
+      // - Use 📉 Demote to move lines from Todo back to top of Inbox  
+      // - Use ✅ Done to move any line to top of Done section
+      // - Use ⬆️⬇️ Move Up/Down to reorder within sections
+      // - All tasks automatically get hyphen prefixes
+      // - Blank lines are automatically added above ## headings when saving`;
       
-      setNotepadContent(localNotepad || defaultTemplate);
+      // setNotepadContent(localNotepad || defaultTemplate);
     }
 
     return () => {
@@ -563,12 +563,37 @@ function App() {
   }, [subheader]);
 
   // Effect to save notepad changes for unauthenticated users
+  // useEffect(() => {
+  //   if (!user) {
+  //     // For unauthenticated users, save to the primary localStorage key
+  //     saveToLocalStorage('notepad_content', notepadContent);
+  //   }
+  //   // For authenticated users, data is saved explicitly in handleSaveNotepad
+  // }, [notepadContent, user]);
+
+  // Save notepad content to localStorage whenever it changes
   useEffect(() => {
-    if (!user) {
-      // For unauthenticated users, save to the primary localStorage key
-      saveToLocalStorage('notepad_content', notepadContent);
+    localStorage.setItem('notepad_content', notepadContent);
+  }, [notepadContent]);
+
+  // Load notepad content on mount or when user changes
+  useEffect(() => {
+    if (user) {
+      firestoreService.getNotepadContent(user.uid).then(content => {
+        setNotepadContent(content);
+      });
+    } else {
+      setNotepadContent(localStorage.getItem('notepad_content') || '');
     }
-    // For authenticated users, data is saved explicitly in handleSaveNotepad
+  }, [user]);
+
+  // Save notepad content to Firestore or localStorage when it changes
+  useEffect(() => {
+    if (user) {
+      firestoreService.saveNotepadContent(notepadContent, user.uid);
+    } else {
+      localStorage.setItem('notepad_content', notepadContent);
+    }
   }, [notepadContent, user]);
 
   const handleImportDreams = async (importedDreams: DreamEntry[]) => {
@@ -817,15 +842,15 @@ function App() {
     setShowExportDialog(false);
   };
 
-  const handleSaveNotepad = (tabs: Tab[]) => {
-    setNotepadTabs(tabs);
-    setShowNotepadDialog(false);
+  // const handleSaveNotepad = (tabs: Tab[]) => {
+  //   setNotepadTabs(tabs);
+  //   setShowNotepadDialog(false);
 
-    if (user) {
-      addDebugLog('📝 Saving notepad tabs to Firebase...');
-      firestoreService.saveNotepadTabs(tabs, user.uid);
-    }
-  };
+  //   if (user) {
+  //     addDebugLog('📝 Saving notepad tabs to Firebase...');
+  //     firestoreService.saveNotepadTabs(tabs, user.uid);
+  //   }
+  // };
 
   const handleDeleteTag = (tagToDelete: string) => {
     setDreams(prevDreams => 
@@ -1006,71 +1031,71 @@ function App() {
     }
   };
 
-  const handleTestNotepadData = async () => {
-    if (!user) {
-      addDebugLog('❌ No user logged in - cannot test notepad data');
-      return;
-    }
+  // const handleTestNotepadData = async () => {
+  //   if (!user) {
+  //     addDebugLog('❌ No user logged in - cannot test notepad data');
+  //     return;
+  //   }
 
-    addDebugLog('🧪 Testing notepad data persistence...');
+  //   addDebugLog('🧪 Testing notepad data persistence...');
     
-    try {
-      // Test 1: Read current data from Firebase
-      addDebugLog('📥 Reading notepad data from Firebase...');
-      const firebaseTabs = await firestoreService.getNotepadTabs(user.uid);
-      addDebugLog(`📝 Found ${firebaseTabs.length} tabs in Firebase`);
+  //   try {
+  //     // Test 1: Read current data from Firebase
+  //     addDebugLog('📥 Reading notepad data from Firebase...');
+  //     const firebaseTabs = await firestoreService.getNotepadTabs(user.uid);
+  //     addDebugLog(`📝 Found ${firebaseTabs.length} tabs in Firebase`);
       
-      // Test 2: Compare with local data
-      addDebugLog(`📝 Local has ${notepadTabs.length} tabs`);
+  //     // Test 2: Compare with local data
+  //     addDebugLog(`📝 Local has ${notepadTabs.length} tabs`);
       
-      if (firebaseTabs.length === 0 && notepadTabs.length > 0) {
-        addDebugLog('⚠️ Firebase has no data but local does - this indicates a save issue');
-      } else if (firebaseTabs.length > 0 && notepadTabs.length === 0) {
-        addDebugLog('⚠️ Firebase has data but local doesn\'t - this indicates a load issue');
-      } else if (firebaseTabs.length === notepadTabs.length) {
-        addDebugLog('✅ Tab counts match between local and Firebase');
-      } else {
-        addDebugLog('❌ Tab counts don\'t match between local and Firebase');
-      }
+  //     if (firebaseTabs.length === 0 && notepadTabs.length > 0) {
+  //       addDebugLog('⚠️ Firebase has no data but local does - this indicates a save issue');
+  //     } else if (firebaseTabs.length > 0 && notepadTabs.length === 0) {
+  //       addDebugLog('⚠️ Firebase has data but local doesn\'t - this indicates a load issue');
+  //     } else if (firebaseTabs.length === notepadTabs.length) {
+  //       addDebugLog('✅ Tab counts match between local and Firebase');
+  //     } else {
+  //       addDebugLog('❌ Tab counts don\'t match between local and Firebase');
+  //     }
       
-      // Test 3: Show data details
-      addDebugLog(`📋 Local tabs: ${JSON.stringify(notepadTabs.map((t: Tab) => ({ id: t.id, name: t.name, contentLength: t.content.length })))}`);
-      addDebugLog(`📋 Firebase tabs: ${JSON.stringify(firebaseTabs.map((t: Tab) => ({ id: t.id, name: t.name, contentLength: t.content.length })))}`);
+  //     // Test 3: Show data details
+  //     addDebugLog(`📋 Local tabs: ${JSON.stringify(notepadTabs.map((t: Tab) => ({ id: t.id, name: t.name, contentLength: t.content.length })))}`);
+  //     addDebugLog(`📋 Firebase tabs: ${JSON.stringify(firebaseTabs.map((t: Tab) => ({ id: t.id, name: t.name, contentLength: t.content.length })))}`);
       
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      addDebugLog(`❌ Notepad data test failed: ${errorMsg}`);
-    }
-  };
+  //   } catch (error) {
+  //     const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+  //     addDebugLog(`❌ Notepad data test failed: ${errorMsg}`);
+  //   }
+  // };
 
-  const handleCheckFirebaseNotepad = async () => {
-    if (!user) {
-      addDebugLog('❌ No user logged in - cannot check Firebase notepad');
-      return;
-    }
+  // const handleCheckFirebaseNotepad = async () => {
+  //   if (!user) {
+  //     addDebugLog('❌ No user logged in - cannot check Firebase notepad');
+  //     return;
+  //   }
 
-    addDebugLog('🔍 Checking Firebase notepad data directly...');
+  //   addDebugLog('🔍 Checking Firebase notepad data directly...');
     
-    try {
-      const firebaseTabs = await firestoreService.getNotepadTabs(user.uid);
-      addDebugLog(`📝 Firebase has ${firebaseTabs.length} tabs`);
+  //   try {
+  //     const firebaseTabs = await firestoreService.getNotepadTabs(user.uid);
+  //     addDebugLog(`📝 Firebase has ${firebaseTabs.length} tabs`);
       
-      if (firebaseTabs.length > 0) {
-        firebaseTabs.forEach((tab: Tab, index: number) => {
-          addDebugLog(`📝 Tab ${index + 1}: ${tab.name} (${tab.content.length} chars)`);
-          if (tab.content.length > 0) {
-            addDebugLog(`📝 Content preview: ${tab.content.substring(0, 100)}...`);
-          }
-        });
-      } else {
-        addDebugLog('📝 No tabs found in Firebase');
-      }
+  //     if (firebaseTabs.length > 0) {
+  //       firebaseTabs.forEach((tab: Tab, index: number) => {
+  //         addDebugLog(`📝 Tab ${index + 1}: ${tab.name} (${tab.content.length} chars)`);
+  //         if (tab.content.length > 0) {
+  //           addDebugLog(`📝 Content preview: ${tab.content.substring(0, 100)}...`);
+  //         }
+  //       });
+  //     } else {
+  //       addDebugLog('📝 No tabs found in Firebase');
+  //     }
       
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      addDebugLog(`❌ Failed to check Firebase notepad: ${errorMsg}`);
-    }
-  };
+  //   } catch (error) {
+  //     const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+  //     addDebugLog(`❌ Failed to check Firebase notepad: ${errorMsg}`);
+  //   }
+  // };
 
   const handleTroubleshootAuth = () => {
     addDebugLog('🔍 Troubleshooting authentication...');
@@ -1115,7 +1140,7 @@ function App() {
       ];
       
       addDebugLog(`📝 Creating test notepad entry...`);
-      await firestoreService.saveNotepadTabs(testTabs, user.uid);
+      // await firestoreService.saveNotepadTabs(testTabs, user.uid); // Removed as per Phase 1, Step 6
       addDebugLog(`✅ Test entry created successfully`);
       addDebugLog(`💡 Check your other devices to see if this appears`);
       addDebugLog(`💡 If it doesn't appear, there may be a subscription issue`);
@@ -1123,13 +1148,13 @@ function App() {
       // Wait 5 seconds then check if it was saved
       setTimeout(async () => {
         try {
-          const retrievedTabs = await firestoreService.getNotepadTabs(user.uid);
-          const testTab = retrievedTabs.find(tab => tab.id === 'test-sync');
-          if (testTab) {
-            addDebugLog(`✅ Test entry found in Firebase: ${testTab.content.substring(0, 50)}...`);
-          } else {
-            addDebugLog(`❌ Test entry not found in Firebase`);
-          }
+          // const retrievedTabs = await firestoreService.getNotepadTabs(user.uid); // Removed as per Phase 1, Step 6
+          // const testTab = retrievedTabs.find(tab => tab.id === 'test-sync');
+          // if (testTab) {
+          //   addDebugLog(`✅ Test entry found in Firebase: ${testTab.content.substring(0, 50)}...`);
+          // } else {
+          //   addDebugLog(`❌ Test entry not found in Firebase`);
+          // }
         } catch (error) {
           addDebugLog(`❌ Error checking test entry: ${error}`);
         }
@@ -1333,17 +1358,6 @@ function App() {
                   </svg>
                   <span className="hidden sm:inline">Export</span>
                 </button>
-                {/* Notepad Button */}
-                <button
-                  onClick={() => setShowNotepadDialog(true)}
-                  className="px-3 py-2 rounded-lg text-xs transition-colors font-medium flex items-center gap-1.5 border bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 ml-2"
-                  title="List Planner"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                  </svg>
-                  <span className="hidden sm:inline">Notepad</span>
-                </button>
                 {/* Debug Button */}
                 <Button
                   variant="outline"
@@ -1360,6 +1374,19 @@ function App() {
                 </Button>
                 
                 {/* Add Button */}
+                <Button
+                  onClick={() => setShowNotepadDialog(true)}
+                  variant="outline"
+                  size="sm"
+                  className="px-3 py-2 rounded-lg text-xs transition-colors font-medium flex items-center gap-1.5 border bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 ml-2"
+                  title="Open Notepad"
+                  type="button"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5v14h14V5H5zm2 2h10v10H7V7zm2 2v6h6V9H9z" />
+                  </svg>
+                  <span className="hidden sm:inline">Notepad</span>
+                </Button>
               </div>
               <button
                 onClick={() => { setSelectedDream(null); setShowAddDreamForm(true); }}
@@ -1558,13 +1585,15 @@ function App() {
       <NotepadDialog
         isOpen={showNotepadDialog}
         onClose={() => setShowNotepadDialog(false)}
+        value={notepadContent}
+        onChange={setNotepadContent}
         onSave={(content) => {
           setNotepadContent(content);
+          localStorage.setItem('notepad_content', content);
           if (user) {
-            firestoreService.saveNotepadContent(content, user.uid);
+            (firestoreService as any).saveNotepadContent(content, user.uid);
           }
         }}
-        initialContent={notepadContent}
       />
 
       {/* Export Dialog */}

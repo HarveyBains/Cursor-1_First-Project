@@ -465,100 +465,6 @@ export class FirestoreService {
     }
   }
 
-  // Notepad sync methods
-  async saveNotepadContent(content: string, userId: string): Promise<void> {
-    try {
-      const notepadRef = doc(db, 'notepads', userId);
-      await setDoc(notepadRef, { 
-        content,
-        updatedAt: new Date().toISOString()
-      });
-      console.log('✅ Notepad content saved successfully');
-    } catch (error) {
-      console.error('❌ Error saving notepad content:', error);
-      throw error;
-    }
-  }
-
-  async getNotepadContent(userId: string): Promise<string> {
-    try {
-      const notepadRef = doc(db, 'notepads', userId);
-      const docSnapshot = await getDoc(notepadRef);
-      if (docSnapshot.exists()) {
-        return docSnapshot.data().content || '';
-      } else {
-        return '';
-      }
-    } catch (error) {
-      console.error('❌ Error loading notepad content:', error);
-      throw error;
-    }
-  }
-
-  // Save an array of notepad tabs for a user
-  async saveNotepadTabs(tabs: Tab[], userId: string): Promise<void> {
-    try {
-      const notepadRef = doc(db, 'notepads', userId);
-      await setDoc(notepadRef, {
-        tabs,
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
-      console.log('✅ Notepad tabs saved successfully');
-    } catch (error) {
-      console.error('❌ Error saving notepad tabs:', error);
-      throw error;
-    }
-  }
-
-  // Retrieve an array of notepad tabs for a user
-  async getNotepadTabs(userId: string): Promise<Tab[]> {
-    try {
-      const notepadRef = doc(db, 'notepads', userId);
-      const docSnapshot = await getDoc(notepadRef);
-      if (docSnapshot.exists()) {
-        return docSnapshot.data().tabs || [];
-      } else {
-        return [];
-      }
-    } catch (error) {
-      console.error('❌ Error loading notepad tabs:', error);
-      throw error;
-    }
-  }
-
-  subscribeToNotepadContent(userId: string, callback: (content: string) => void): Unsubscribe {
-    const notepadRef = doc(db, 'notepads', userId);
-    const unsubscribe = onSnapshot(notepadRef, (doc) => {
-      if (doc.exists()) {
-        callback(doc.data().content || '');
-      } else {
-        callback('');
-      }
-    }, (error) => {
-      console.error('❌ Error in notepad subscription:', error);
-      callback('');
-    });
-
-    this.unsubscribes.push(unsubscribe);
-    return unsubscribe;
-  }
-
-  subscribeToNotepadTabs(userId: string, callback: (tabs: Tab[]) => void): Unsubscribe {
-    const notepadRef = doc(db, 'notepads', userId);
-    const unsubscribe = onSnapshot(notepadRef, (doc) => {
-      if (doc.exists()) {
-        callback(doc.data().tabs || []);
-      } else {
-        callback([]);
-      }
-    }, (error) => {
-      console.error('❌ Error in notepad tabs subscription:', error);
-      callback([]);
-    });
-    this.unsubscribes.push(unsubscribe);
-    return unsubscribe;
-  }
-
   // Save a dream with a specific ID (for migration)
   async saveDreamWithId(dream: DreamEntry, userId: string): Promise<void> {
     try {
@@ -582,6 +488,21 @@ export class FirestoreService {
     } catch (error) {
       console.error('❌ Error saving dream with specific ID to Firestore:', error);
       throw error;
+    }
+  }
+
+  async saveNotepadContent(content: string, userId: string): Promise<void> {
+    const notepadRef = doc(db, 'notepads', userId);
+    await setDoc(notepadRef, { content, updatedAt: new Date().toISOString() }, { merge: true });
+  }
+
+  async getNotepadContent(userId: string): Promise<string> {
+    const notepadRef = doc(db, 'notepads', userId);
+    const docSnapshot = await getDoc(notepadRef);
+    if (docSnapshot.exists()) {
+      return docSnapshot.data().content || '';
+    } else {
+      return '';
     }
   }
 
