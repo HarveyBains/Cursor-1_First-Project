@@ -144,10 +144,6 @@ function App() {
   const [dragging, setDragging] = useState(false);
   const dragOffset = useRef({ x: 0, y: 0 });
 
-  // Track the last locally updated displayOrder for each dream
-  const [localDisplayOrderMap, setLocalDisplayOrderMap] = useState<Record<string, number>>({});
-  // Track pending displayOrder changes for race condition handling
-  const [pendingDisplayOrderMap, setPendingDisplayOrderMap] = useState<Record<string, number>>({});
 
   // Track if dreams are loaded from Firebase
   const [dreamsReady, setDreamsReady] = useState(false);
@@ -1331,6 +1327,18 @@ function App() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 13v-2a7 7 0 00-14 0v2m14 0a2 2 0 01-2 2h-2a2 2 0 01-2-2m6 0a2 2 0 01-2 2h-2a2 2 0 01-2-2m6 0V9a2 2 0 00-2-2m-6 0V9a2 2 0 002 2m0 0a2 2 0 002-2V7a2 2 0 00-2-2m0 0a2 2 0 00-2 2v2a2 2 0 002 2z" />
                   </svg>
                   <span className="hidden sm:inline">Debug</span>
+                </button>
+              </div>
+              {/* Right side - Add Dream Button with spacer */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => { setShowAddDreamForm(true); setSelectedDream(null); }}
+                  className="px-3 py-2 rounded-lg text-xs transition-colors font-medium flex items-center gap-1.5 border bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 ml-4"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  <span className="hidden sm:inline">Add Notion</span>
                 </button>
               </div>
             </div>
