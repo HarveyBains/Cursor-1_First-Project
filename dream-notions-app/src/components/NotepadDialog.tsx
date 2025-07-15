@@ -8,29 +8,25 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
+import type { Tab } from '@/types/Tab';
 
 interface NotepadDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (content: string) => void;
-  initialContent: string;
+  onSave: (tabs: Tab[]) => void;
+  initialTabs: Tab[];
 }
 
 const NotepadDialog: React.FC<NotepadDialogProps> = ({ 
   isOpen, 
   onClose, 
   onSave, 
-  initialContent,
+  initialTabs,
 }) => {
-  const [tabs, setTabs] = useState<any[]>([
-    {
-      id: 'todo',
-      name: 'Todo',
-      content: initialContent,
-      isDeletable: false,
-      isRenameable: true
-    }
-  ]);
+  const safeTabs = Array.isArray(initialTabs) && initialTabs.length > 0
+    ? initialTabs
+    : [{ id: 'todo', name: 'Todo', content: '', isDeletable: false }];
+  const [tabs, setTabs] = useState<Tab[]>(safeTabs);
   const [activeTabId, setActiveTabId] = useState('todo');
   const [isRenaming, setIsRenaming] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
@@ -82,12 +78,10 @@ const NotepadDialog: React.FC<NotepadDialogProps> = ({
   }, [dragging]);
 
   useEffect(() => {
-    setTabs(prevTabs => 
-      prevTabs.map(tab => 
-        tab.id === 'todo' ? { ...tab, content: initialContent } : tab
-      )
-    );
-  }, [initialContent]);
+    setTabs(Array.isArray(initialTabs) && initialTabs.length > 0
+      ? initialTabs
+      : [{ id: 'todo', name: 'Todo', content: '', isDeletable: false }]);
+  }, [initialTabs]);
 
   const activeTab = tabs.find(tab => tab.id === activeTabId);
   const content = activeTab?.content || '';
@@ -422,12 +416,11 @@ const NotepadDialog: React.FC<NotepadDialogProps> = ({
 
   // Add new tab
   const addNewTab = () => {
-    const newTab: any = {
+    const newTab: Tab = {
       id: `tab_${Date.now()}`,
       name: `Tab ${tabs.length}`,
       content: '',
       isDeletable: true,
-      isRenameable: true
     };
     setTabs(prevTabs => [...prevTabs, newTab]);
     setActiveTabId(newTab.id);
@@ -469,10 +462,7 @@ const NotepadDialog: React.FC<NotepadDialogProps> = ({
 
 
   const handleSave = () => {
-    // Save the Todo tab content (maintain backward compatibility)
-    const todoTab = tabs.find(tab => tab.id === 'todo');
-    const formattedContent = todoTab ? formatContent(todoTab.content) : '';
-    onSave(formattedContent);
+    onSave(tabs);
     // Don't close the window - let user continue working
   };
 

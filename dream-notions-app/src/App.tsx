@@ -168,6 +168,29 @@ function App() {
     return [{ id: 'todo', name: 'Todo', content: '', isDeletable: false }];
   });
 
+  // Subscribe to notepad tabs from Firebase or localStorage
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+    if (user) {
+      unsubscribe = firestoreService.subscribeToNotepadTabs?.(user.uid, (tabs: Tab[]) => {
+        setNotepadTabs(Array.isArray(tabs) && tabs.length > 0 ? tabs : [{ id: 'todo', name: 'Todo', content: '', isDeletable: false }]);
+      });
+    } else {
+      const saved = loadFromLocalStorage('notepad_tabs', null);
+      setNotepadTabs(Array.isArray(saved) && saved.length > 0 ? saved : [{ id: 'todo', name: 'Todo', content: '', isDeletable: false }]);
+    }
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [user]);
+
+  // Save notepadTabs to localStorage for unauthenticated users
+  useEffect(() => {
+    if (!user) {
+      saveToLocalStorage('notepad_tabs', notepadTabs);
+    }
+  }, [notepadTabs, user]);
+
 
   const allUniqueTags = useMemo(() => {
     // Get all tags and normalize them to prevent duplicates

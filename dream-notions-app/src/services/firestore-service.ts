@@ -14,7 +14,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase-config';
 import { type DreamEntry } from '../types/DreamEntry';
-import { type Tab } from '../types/Tab';
+import type { Tab } from '../types/Tab';
 
 export class FirestoreService {
   private static instance: FirestoreService;
@@ -539,6 +539,22 @@ export class FirestoreService {
       callback('');
     });
 
+    this.unsubscribes.push(unsubscribe);
+    return unsubscribe;
+  }
+
+  subscribeToNotepadTabs(userId: string, callback: (tabs: Tab[]) => void): Unsubscribe {
+    const notepadRef = doc(db, 'notepads', userId);
+    const unsubscribe = onSnapshot(notepadRef, (doc) => {
+      if (doc.exists()) {
+        callback(doc.data().tabs || []);
+      } else {
+        callback([]);
+      }
+    }, (error) => {
+      console.error('❌ Error in notepad tabs subscription:', error);
+      callback([]);
+    });
     this.unsubscribes.push(unsubscribe);
     return unsubscribe;
   }
