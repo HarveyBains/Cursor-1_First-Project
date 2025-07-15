@@ -185,6 +185,26 @@ const NotepadDialog: React.FC<NotepadDialogProps> = ({
     onTabContentChange(lines.join('\n'));
   };
 
+  // Delete current line
+  const deleteCurrentLine = () => {
+    if (!textareaRef.current) return;
+    const lines = activeTab?.content.split('\n');
+    const cursorPos = textareaRef.current.selectionStart;
+    let currentPos = 0;
+    let lineIndex = 0;
+    for (let i = 0; i < lines.length; i++) {
+      const lineLength = lines[i].length + 1;
+      if (cursorPos <= currentPos + lineLength) {
+        lineIndex = i;
+        break;
+      }
+      currentPos += lineLength;
+    }
+    if (lines.length === 0) return;
+    lines.splice(lineIndex, 1);
+    onTabContentChange(lines.join('\n'));
+  };
+
   // const handleSave = () => { // This function is removed as per the edit hint
   //   onSave(content);
   // };
@@ -317,10 +337,19 @@ const NotepadDialog: React.FC<NotepadDialogProps> = ({
         <div className="flex gap-2 items-center p-2 bg-card border-t border-border w-full flex-shrink-0">
           <Button variant="outline" size="sm" onClick={promoteToTodo} className="text-xs h-7 bg-primary text-primary-foreground hover:bg-primary/90">Promote</Button>
           <Button variant="outline" size="sm" onClick={demoteFromTodo} className="text-xs h-7 bg-primary text-primary-foreground hover:bg-primary/90">Demote</Button>
-          <Button variant="outline" size="sm" onClick={moveToDone} className="text-xs h-7 bg-card border border-green-500/50 text-green-500 hover:bg-muted/80">Done</Button>
+          <Button variant="outline" size="sm" onClick={moveToDone} className="text-xs h-7 bg-card border border-green-500/50 text-green-500 hover:bg-muted/80" title="Mark as Done">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+          </Button>
+          <Button variant="outline" size="sm" onClick={deleteCurrentLine} className="text-xs h-7 bg-card border border-red-500/50 text-red-500 hover:bg-muted/80" title="Delete current line">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </Button>
           <div className="w-px h-6 bg-border"></div>
-          <Button variant="outline" size="sm" onClick={moveLineUp} className="text-xs h-7 bg-card border border-border text-foreground hover:bg-muted/80">Move Up</Button>
-          <Button variant="outline" size="sm" onClick={moveLineDown} className="text-xs h-7 bg-card border border-border text-foreground hover:bg-muted/80">Move Down</Button>
+          <Button variant="outline" size="sm" onClick={moveLineUp} className="text-xs h-7 bg-card border border-border text-foreground hover:bg-muted/80" title="Move line up">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v14m0-14l-7 7m7-7l7 7" /></svg>
+          </Button>
+          <Button variant="outline" size="sm" onClick={moveLineDown} className="text-xs h-7 bg-card border border-border text-foreground hover:bg-muted/80" title="Move line down">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19V5m0 14l-7-7m7 7l7-7" /></svg>
+          </Button>
           <div className="flex-1"></div>
         </div>
       </div>
