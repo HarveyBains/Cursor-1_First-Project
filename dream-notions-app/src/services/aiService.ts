@@ -65,7 +65,7 @@ class AIService {
   }
 
   // Main AI text cleanup function
-  async cleanupText(originalText: string): Promise<AIResponse> {
+  async cleanupText(originalText: string, useCustomPrompt: boolean = false): Promise<AIResponse> {
     if (!this.config) {
       return { cleanedText: '', error: 'AI not configured. Please set up your AI service in settings.' };
     }
@@ -75,7 +75,7 @@ class AIService {
     }
 
     try {
-      return await this.callAI(originalText);
+      return await this.callAI(originalText, false, useCustomPrompt);
     } catch (error) {
       console.error('AI service error:', error);
       return { 
@@ -107,14 +107,21 @@ ${text}`;
   }
 
   // Call AI service based on provider
-  private async callAI(text: string, isTest: boolean = false): Promise<AIResponse> {
+  private async callAI(text: string, isTest: boolean = false, useCustomPrompt: boolean = false): Promise<AIResponse> {
     if (!this.config) {
       throw new Error('No AI configuration');
     }
 
-    const prompt = isTest 
-      ? 'Respond with "Connection successful" if you can read this.'
-      : this.buildCleanupPrompt(text);
+    let prompt: string;
+    if (isTest) {
+      prompt = 'Respond with "Connection successful" if you can read this.';
+    } else if (useCustomPrompt) {
+      // For custom prompts (like title generation), use the text as-is
+      prompt = text;
+    } else {
+      // For dream cleanup, use the standard prompt building
+      prompt = this.buildCleanupPrompt(text);
+    }
 
     switch (this.config.provider) {
       case 'openai':
