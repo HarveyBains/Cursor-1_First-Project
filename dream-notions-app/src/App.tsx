@@ -146,6 +146,8 @@ function App() {
 
   // Track the last locally updated displayOrder for each dream
   const [localDisplayOrderMap, setLocalDisplayOrderMap] = useState<Record<string, number>>({});
+  // Track pending displayOrder changes for race condition handling
+  const [pendingDisplayOrderMap, setPendingDisplayOrderMap] = useState<Record<string, number>>({});
 
   // Mouse event handlers for dragging
   const handleDebugPanelMouseDown = (e: React.MouseEvent) => {
@@ -478,97 +480,28 @@ function App() {
     localStorage.setItem('theme', JSON.stringify(isDarkMode));
   }, [isDarkMode]);
 
-  // New simplified Firebase sync
-  useEffect(() => {
-    let dreamsUnsubscribe: (() => void) | null = null;
-
+  // Manual Firebase sync: fetch all dreams on load or refresh
+  const fetchDreamsFromFirebase = useCallback(async () => {
     if (user) {
-      addDebugLog(`🔥 Setting up Firebase for user: ${user.uid}`);
-
-      // Migrate local data to Firebase if needed
-      const migrateLocalData = async () => {
-        const localDreams = loadFromLocalStorage('dreams_local', []);
-        if (localDreams.length > 0) {
-          addDebugLog(`🔄 Migrating ${localDreams.length} local dreams to Firebase...`);
-          for (const dream of localDreams) {
-            await firestoreService.saveDreamWithId(dream, user.uid);
-          }
-          localStorage.removeItem('dreams_local');
-          addDebugLog('✅ Local dreams migrated and cleared.');
-        }
-
-        // const localNotepad = loadFromLocalStorage('notepad_tabs', []);
-        // if (localNotepad.length > 0) {
-        //   addDebugLog(`🔄 Migrating ${localNotepad.length} local notepad tabs to Firebase...`);
-        //   await firestoreService.saveNotepadTabs(localNotepad, user.uid);
-        //   localStorage.removeItem('notepad_tabs');
-        //   addDebugLog('✅ Local notepad migrated and cleared.');
-        // }
-      };
-
-      migrateLocalData();
-
-      // Subscribe to Firebase data
-      dreamsUnsubscribe = firestoreService.subscribeToUserDreams(user.uid, (firestoreDreams) => {
-        // Check if the displayOrder values differ from the local optimistic state
-        const shouldUpdate = firestoreDreams.some(dream => {
-          const localOrder = localDisplayOrderMap[dream.id];
-          return typeof localOrder !== 'number' || localOrder !== dream.displayOrder;
-        });
-        if (shouldUpdate) {
-          addDebugLog(`📥 Received ${firestoreDreams.length} dreams from Firebase.`);
-          setDreams(cleanDreamTagsAndColors(firestoreDreams));
-        } else {
-          addDebugLog('📥 Firebase update ignored (optimistic local order matches)');
-        }
-      });
-
-      // notepadUnsubscribe = firestoreService.subscribeToNotepadContent(user.uid, (content) => {
-      //   addDebugLog(`📥 Received notepad content from Firebase.`);
-      //   setNotepadContent(content);
-      // });
-
+      addDebugLog(`🔥 Fetching dreams from Firebase for user: ${user.uid}`);
+      try {
+        const dreams = await firestoreService.getUserDreams(user.uid);
+        setDreams(cleanDreamTagsAndColors(dreams));
+        addDebugLog(`📥 Downloaded ${dreams.length} dreams from Firebase.`);
+      } catch (error) {
+        addDebugLog('❌ Error downloading dreams from Firebase');
+      }
     } else {
-      // User is signed out, load from localStorage
       addDebugLog('🔥 User signed out, loading from localStorage.');
       const localDreams = loadFromLocalStorage('dreams_local', []);
       setDreams(cleanDreamTagsAndColors(localDreams));
-      // const localNotepad = loadFromLocalStorage('notepad_content', '');
-      // // Set default template if notepad is empty
-      // const defaultTemplate = `## Todo
-      // - Sample task 1
-      // - Sample task 2
-
-      // ## Que
-      // - Future consideration 1
-      // - Future consideration 2
-
-      // ## Done
-      // - Completed task 1
-      // - Completed task 2
-
-      // ## Inbox
-      // - Random thought 1
-      // - Random thought 2
-      // - Ideas go here before being promoted to Todo
-
-      // # Usage
-      // - Use 📈 Promote to move any line to bottom of Todo
-      // - Use 📉 Demote to move lines from Todo back to top of Inbox  
-      // - Use ✅ Done to move any line to top of Done section
-      // - Use ⬆️⬇️ Move Up/Down to reorder within sections
-      // - All tasks automatically get hyphen prefixes
-      // - Blank lines are automatically added above ## headings when saving`;
-      
-      // setNotepadContent(localNotepad || defaultTemplate);
     }
+  }, [user, addDebugLog]);
 
-    return () => {
-      if (dreamsUnsubscribe) dreamsUnsubscribe();
-    };
-  }, [user, addDebugLog, localDisplayOrderMap]);
-
-  
+  // Fetch dreams on initial load or when user changes
+  useEffect(() => {
+    fetchDreamsFromFirebase();
+  }, [fetchDreamsFromFirebase]);
 
   useEffect(() => {
     // Only save to localStorage for unauthenticated users
@@ -1080,6 +1013,16 @@ function App() {
           });
           return newMap;
         });
+        // Update pendingDisplayOrderMap for race condition handling
+        setPendingDisplayOrderMap(prevMap => {
+          const newMap = { ...prevMap };
+          affectedDreams.forEach(dream => {
+            if (typeof dream.displayOrder === 'number') {
+              newMap[dream.id] = dream.displayOrder;
+            }
+          });
+          return newMap;
+        });
         if (user && typeof firestoreService.updateDream === 'function') {
           affectedDreams.forEach(dream => {
             firestoreService.updateDream(dream.id, { displayOrder: dream.displayOrder })
@@ -1289,6 +1232,12 @@ function App() {
             width: 700,    // default width
             boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
             cursor: dragging ? 'move' : 'default',
+            resize: 'vertical',
+            minHeight: 300,
+            maxHeight: 900,
+            overflow: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
           }}
           className="bg-card border border-border shadow-lg rounded-lg p-0"
         >
@@ -1305,16 +1254,16 @@ function App() {
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </Button>
           </div>
-          <div className="px-4 pb-4 pt-2">
+          <div className="px-4 pb-4 pt-2 flex flex-col h-full min-h-0" style={{flex: 1, minHeight: 0}}>
             <div className="mb-2 text-xs text-muted-foreground">
               <div>User: {user ? `${user.displayName} (${user.email})` : 'Not signed in'}</div>
               <div>Dreams: {dreams.length}</div>
               <div>Data Source: {user ? '🔥 Firebase' : '💾 localStorage'}</div>
             </div>
             <Separator className="my-2" />
-            <div className="mb-2">
+            <div className="mb-2 flex-1 min-h-0 flex flex-col">
               <div className="font-medium text-sm mb-1">Recent Logs</div>
-              <div className="max-h-40 overflow-y-auto overflow-x-auto bg-muted/40 rounded p-2 text-xs font-mono whitespace-pre">
+              <div className="flex-1 min-h-0 overflow-y-auto bg-muted/40 rounded p-2 text-xs font-mono" style={{overflowX: 'auto', whiteSpace: 'nowrap', fontFamily: 'monospace'}}>
                 {debugLogs.length === 0 ? (
                   <div className="text-muted-foreground">No logs yet.</div>
                 ) : (
@@ -1328,6 +1277,47 @@ function App() {
               <Button size="sm" variant="outline" onClick={copyDebugToClipboard}>Copy</Button>
               <Button size="sm" variant="outline" onClick={() => setDebugLogs([])}>Clear</Button>
             </div>
+          </div>
+          {/* Custom resize handle for easier vertical resizing */}
+          <div
+            style={{
+              position: 'absolute',
+              right: 0,
+              bottom: 0,
+              width: 32,
+              height: 24,
+              cursor: 'ns-resize',
+              zIndex: 1100,
+              display: 'flex',
+              alignItems: 'flex-end',
+              justifyContent: 'flex-end',
+              pointerEvents: 'auto',
+            }}
+            onMouseDown={e => {
+              e.stopPropagation();
+              // Start vertical resize
+              const parent = e.currentTarget.parentElement;
+              if (!parent) return;
+              const startY = e.clientY;
+              const startHeight = parent.offsetHeight;
+              const panel = parent;
+              const onMove = (moveEvent: MouseEvent) => {
+                if (!panel) return;
+                const newHeight = Math.max(200, Math.min(900, startHeight + (moveEvent.clientY - startY)));
+                panel.style.height = newHeight + 'px';
+              };
+              const onUp = () => {
+                window.removeEventListener('mousemove', onMove);
+                window.removeEventListener('mouseup', onUp);
+              };
+              window.addEventListener('mousemove', onMove);
+              window.addEventListener('mouseup', onUp);
+            }}
+          >
+            <svg width="32" height="24" viewBox="0 0 32 24">
+              <rect x="8" y="16" width="16" height="6" rx="2" fill="#888" />
+              <rect x="12" y="20" width="8" height="2" rx="1" fill="#bbb" />
+            </svg>
           </div>
         </div>
       )}
@@ -1363,40 +1353,26 @@ function App() {
                   variant="outline"
                   size="sm"
                   onClick={() => setDebugPanelOpen(true)}
-                  className="px-3 py-2 rounded-lg text-xs transition-colors font-medium flex items-center gap-1.5 border bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 ml-2"
-                  title="Open Debug Panel"
-                  type="button"
+                  className="flex items-center gap-2"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7v4a2 2 0 01-2 2H7a2 2 0 01-2-2V7m0 0V5a2 2 0 012-2h10a2 2 0 012 2v2m-2 0h2m-2 0V5m0 2V5" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V4a2 2 0 10-4 0v1.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                   </svg>
-                  <span className="hidden sm:inline">Debug</span>
+                  Debug
                 </Button>
-                
-                {/* Add Button */}
+                {/* Refresh Button */}
                 <Button
-                  onClick={() => setShowNotepadDialog(true)}
                   variant="outline"
                   size="sm"
-                  className="px-3 py-2 rounded-lg text-xs transition-colors font-medium flex items-center gap-1.5 border bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 ml-2"
-                  title="Open Notepad"
-                  type="button"
+                  onClick={fetchDreamsFromFirebase}
+                  className="flex items-center gap-2"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5v14h14V5H5zm2 2h10v10H7V7zm2 2v6h6V9H9z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582M20 20v-5h-.581M5 19A9 9 0 0119 5M5 5l14 14" />
                   </svg>
-                  <span className="hidden sm:inline">Notepad</span>
+                  Refresh
                 </Button>
               </div>
-              <button
-                onClick={() => { setSelectedDream(null); setShowAddDreamForm(true); }}
-                className="px-3 py-2 rounded-lg text-xs transition-colors font-medium flex items-center gap-1.5 border bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                Add
-              </button>
             </div>
           </div>
         </div>

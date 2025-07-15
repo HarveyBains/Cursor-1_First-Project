@@ -174,6 +174,11 @@ const DreamItem: React.FC<DreamItemProps> = ({ dream, index, onMove, onEdit, onD
                 <h3 className="font-semibold text-primary text-sm leading-tight break-words whitespace-normal min-w-0 flex-shrink truncate">
                   {formattedDate} - {dream.name}
                 </h3>
+                {typeof dream.displayOrder === 'number' && (
+                  <span className="ml-2 px-2 py-0.5 rounded bg-muted text-xs text-muted-foreground border border-border" title="Sequence Number">
+                    #{dream.displayOrder}
+                  </span>
+                )}
               </div>
               
               {/* Line 2: Tags (truncated if needed) */}

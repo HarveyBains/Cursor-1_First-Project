@@ -87,6 +87,7 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
       tags: tags.split(',').map(t => t.trim()).filter(Boolean),
       iconColor,
       timestamp,
+      displayOrder: dreamToEdit?.displayOrder,
     };
     onSave(updatedDream);
   };
@@ -233,6 +234,7 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
       isFavorite,
       tags: tags.split(',').map(tag => tag.trim()).filter(tag => tag !== ''),
       iconColor,
+      displayOrder: dreamToEdit?.displayOrder,
     };
     onSave(dreamData);
     onClose();
