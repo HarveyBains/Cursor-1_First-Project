@@ -19,6 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { type Tab } from './types/Tab';
 import NotepadDialog from './components/NotepadDialog';
+import AISettings from './components/AISettings';
 import { v4 as uuidv4 } from 'uuid';
 
 
@@ -54,6 +55,7 @@ function App() {
   const [showDeleteAllConfirmDialog, setShowDeleteAllConfirmDialog] = useState(false);
   const [showNotepadDialog, setShowNotepadDialog] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showAISettings, setShowAISettings] = useState(false);
   // Multi-tab Notepad state
   const [notepadTabs, setNotepadTabs] = useState<Tab[]>(() => {
     // Try to load from localStorage or migrate from old single notepadContent
@@ -933,13 +935,14 @@ function App() {
       <header className="bg-card border-b border-border px-4 py-4 sticky top-0 z-40 shadow-sm">
         <div className="max-w-3xl mx-auto">
           <div className="flex items-center justify-between">
-            {/* Left side - Theme Toggle */}
+            {/* Left side - Theme Toggle and Settings */}
             <div className="flex items-center gap-3">
               <Button 
                 variant="outline"
                 size="sm"
                 onClick={toggleTheme}
                 className="p-2"
+                title="Toggle Theme"
               >
                 {isDarkMode ? (
                   <svg className="w-4 h-4 text-purple-400" fill="currentColor" viewBox="0 0 20 20">
@@ -950,6 +953,18 @@ function App() {
                     <path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 00-1.414-1.414l-.707.707a1 1 0 001.414 1.414l.707-.707zM10 18a1 1 0 01-1 1v1a1 1 0 112 0v-1a1 1 0 01-1-1zM3 10a1 1 0 01-1-1V8a1 1 0 112 0v1a1 1 0 01-1 1zm-.707 4.293a1 1 0 001.414 1.414l.707-.707a1 1 0 00-1.414-1.414l-.707.707zM17 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zm.707-4.293a1 1 0 00-1.414-1.414l-.707.707a1 1 0 001.414 1.414l.707-.707z" />
                   </svg>
                 )}
+              </Button>
+              <Button 
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAISettings(true)}
+                className="p-2"
+                title="AI Settings"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
               </Button>
             </div>
 
@@ -1373,6 +1388,12 @@ function App() {
         onExport={handleExportConfirm}
         totalRecords={filteredDreams.length}
         latestDateCount={latestDateCount}
+      />
+
+      {/* AI Settings Dialog */}
+      <AISettings
+        isOpen={showAISettings}
+        onClose={() => setShowAISettings(false)}
       />
 
       {/* Custom Context Menu */}

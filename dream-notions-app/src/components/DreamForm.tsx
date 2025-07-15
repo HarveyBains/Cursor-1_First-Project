@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { DreamEntry } from '../types/DreamEntry';
+import { aiService } from '../services/aiService';
 
 const ICON_COLORS = [
   '#F87171', // Red
@@ -81,6 +82,8 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
   const handleDescriptionContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     if (description.trim()) {
+      // Load AI config to check if it's available
+      aiService.loadConfig();
       setContextMenu({
         visible: true,
         x: e.clientX,
@@ -89,30 +92,23 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
     }
   };
 
-  // Clean up text using AI (placeholder - would need actual AI integration)
+  // Clean up text using AI service
   const handleCleanupText = async () => {
     setContextMenu({ visible: false, x: 0, y: 0 });
     setIsProcessing(true);
     setShowCleanupModal(true);
     
+    // Load AI configuration
+    aiService.loadConfig();
+    
     try {
-      // Simulated AI cleanup - in real implementation, this would call an AI service
-      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate processing time
+      const result = await aiService.cleanupText(description);
       
-      // Mock AI enhancement - clean up text
-      const mockCleanedText = description
-        .replace(/\bi\b/g, 'I') // Capitalize I
-        .replace(/(\. *)([a-z])/g, (_, period, letter) => period + letter.toUpperCase()) // Capitalize after periods
-        .replace(/\s+/g, ' ') // Remove extra spaces
-        .replace(/([.!?])\s*([A-Z])/g, '$1 $2') // Proper spacing after punctuation
-        .trim();
-      
-      // Add some narrative improvement
-      const enhancedText = mockCleanedText
-        .replace(/^/, 'In my dream, ') // Add dream context
-        .replace(/\.$/, '. The dream felt vivid and meaningful.'); // Add closing
-      
-      setCleanedText(enhancedText);
+      if (result.error) {
+        setCleanedText(`Error: ${result.error}`);
+      } else {
+        setCleanedText(result.cleanedText);
+      }
     } catch (error) {
       console.error('Error cleaning up text:', error);
       setCleanedText('Error processing text. Please try again.');
@@ -532,70 +528,96 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
           >
             <button
               onClick={handleCleanupText}
-              className="w-full px-3 py-2 text-left text-sm hover:bg-muted transition-colors flex items-center gap-2"
+              disabled={!aiService.isConfigured()}
+              className="w-full px-3 py-2 text-left text-sm hover:bg-muted transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
               </svg>
-              Clean up text with AI
+              <div className="flex flex-col">
+                <span>Clean up text with AI</span>
+                {!aiService.isConfigured() && (
+                  <span className="text-xs text-muted-foreground">Configure AI in Settings first</span>
+                )}
+              </div>
             </button>
           </div>
         )}
 
         {/* Text Cleanup Modal */}
         {showCleanupModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-card p-6 rounded-lg shadow-xl w-full max-w-4xl border border-border max-h-[80vh] overflow-y-auto">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-card p-8 rounded-lg shadow-xl w-full max-w-7xl border border-border h-[90vh] flex flex-col">
               <h3 className="text-lg mb-4 text-foreground text-center">AI Text Cleanup</h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 min-h-0">
                 {/* Original Text */}
-                <div>
-                  <h4 className="text-sm font-medium text-foreground mb-2">Original Text:</h4>
-                  <div className="p-3 border border-border rounded-md bg-muted/50 text-sm max-h-60 overflow-y-auto">
-                    {description}
+                <div className="flex flex-col min-h-0">
+                  <h4 className="text-sm font-medium text-foreground mb-3">Original Text:</h4>
+                  <div className="p-4 border border-border rounded-md bg-muted/50 text-sm flex-1 overflow-y-auto">
+                    <div className="whitespace-pre-wrap">{description}</div>
                   </div>
                 </div>
                 
                 {/* Cleaned Text */}
-                <div>
-                  <h4 className="text-sm font-medium text-foreground mb-2">
-                    Cleaned Text:
+                <div className="flex flex-col min-h-0">
+                  <h4 className="text-sm font-medium text-foreground mb-3">
+                    AI Enhanced Text:
                     {isProcessing && (
                       <span className="ml-2 text-xs text-muted-foreground">Processing...</span>
                     )}
-                  </h4>
-                  <div className="p-3 border border-border rounded-md bg-background text-sm max-h-60 overflow-y-auto">
-                    {isProcessing ? (
-                      <div className="flex items-center justify-center h-20">
-                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                      </div>
-                    ) : (
-                      <div className="whitespace-pre-wrap">{cleanedText}</div>
+                    {!isProcessing && cleanedText && (
+                      <span className="ml-2 text-xs text-muted-foreground">(editable - make changes as needed)</span>
                     )}
-                  </div>
+                  </h4>
+                  {isProcessing ? (
+                    <div className="p-4 border border-border rounded-md bg-background text-sm flex-1 flex items-center justify-center">
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                        <span className="text-muted-foreground">Processing your dream with AI...</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <textarea
+                      className="w-full p-4 border border-border rounded-md bg-background text-foreground text-sm flex-1 resize-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                      value={cleanedText}
+                      onChange={(e) => setCleanedText(e.target.value)}
+                      placeholder="AI-enhanced text will appear here. You can edit this text before replacing your original..."
+                      style={{ fontFamily: 'inherit', lineHeight: '1.5' }}
+                    />
+                  )}
                 </div>
               </div>
               
-              <div className="flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowCleanupModal(false);
-                    setCleanedText('');
-                  }}
-                  className="px-4 py-2 rounded-md text-sm font-medium transition-colors border border-input bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
-                >
-                  Keep Original
-                </button>
-                <button
-                  type="button"
-                  onClick={handleReplaceText}
-                  disabled={isProcessing || !cleanedText}
-                  className="bg-primary text-primary-foreground px-4 py-2 rounded hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Replace with Cleaned Version
-                </button>
+              <div className="flex items-center justify-between pt-6 border-t border-border mt-6">
+                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                  <span>💡 Tip: You can edit the AI text directly before replacing</span>
+                  {cleanedText && (
+                    <span className="px-2 py-1 rounded bg-primary/10 text-primary">
+                      {cleanedText.length} characters
+                    </span>
+                  )}
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCleanupModal(false);
+                      setCleanedText('');
+                    }}
+                    className="px-6 py-3 rounded-md text-sm font-medium transition-colors border border-input bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleReplaceText}
+                    disabled={isProcessing || !cleanedText.trim()}
+                    className="bg-primary text-primary-foreground px-6 py-3 rounded-md text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Replace with Enhanced Version
+                  </button>
+                </div>
               </div>
             </div>
           </div>
