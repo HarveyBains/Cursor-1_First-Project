@@ -59,6 +59,7 @@ export class FirestoreService {
       const dreamData = {
         ...dream,
         iconColor: dream.iconColor || '#6B7280',
+        displayOrder: dream.displayOrder,
         userId,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -85,6 +86,7 @@ export class FirestoreService {
       const updateData = {
         ...updates,
         iconColor: updates.iconColor || '#6B7280',
+        displayOrder: updates.displayOrder,
         updatedAt: new Date().toISOString()
       };
 

@@ -31,7 +31,7 @@ export const parseImportMarkdown = (markdownText: string): DreamEntry[] => {
     
     // Match format: DD/MM/YY [HH:MM] - Dream Title, Tags:Tag1,Tag2,Tag3
     // Also handle format without tags: DD/MM/YY [HH:MM] - Dream Title
-    const dreamFormatMatch = firstLine.match(/^([0-9]{2}\/[0-9]{2}\/[0-9]{2})(?:\s+([0-9]{2}:[0-9]{2}))?\s*-\s*(.*?)(?:,\s*Tags:(.*))?$/);
+    const dreamFormatMatch = firstLine.match(/^([0-9]{2}\/[0-9]{2}\/[0-9]{2})(?:\s+([0-9]{2}:[0-9]{2}))?\s*-\s*(.*?)(?:,\s*Tags:([^,\n]*))?(?:,\s*Color:([#a-zA-Z0-9]+))?(?:,\s*Seq:(\d+))?$/);
 
     if (dreamFormatMatch) {
       const dateString = dreamFormatMatch[1];
@@ -57,6 +57,8 @@ export const parseImportMarkdown = (markdownText: string): DreamEntry[] => {
 
       const name = dreamFormatMatch[3].trim();
       const tagsString = dreamFormatMatch[4] ? dreamFormatMatch[4].trim() : '';
+      const iconColor = dreamFormatMatch[5] ? dreamFormatMatch[5].trim() : '#6B7280';
+      const displayOrder = dreamFormatMatch[6] ? parseInt(dreamFormatMatch[6], 10) : undefined;
       
       // Parse tags - ONLY split on commas, preserve / for hierarchical tags
       let tags: string[] = [];
@@ -99,8 +101,9 @@ export const parseImportMarkdown = (markdownText: string): DreamEntry[] => {
         description: description || undefined,
         isFavorite: false,
         tags: tags.length > 0 ? tags : ['Default'], // Ensure at least Default tag
+        iconColor,
         icon: 'neutral',
-        displayOrder: dreams.length * 1000
+        displayOrder
       } as DreamEntry);
       console.log('  Dream pushed:', dreams[dreams.length - 1]);
     } else {
@@ -182,9 +185,10 @@ export const exportDreams = async (dreams: DreamEntry[]): Promise<void> => {
     const formattedDateDDMMYY = `${day}/${month}/${yearShort}`;
     const formattedTime = `${hours}:${minutes}`;
     const tags = dream.tags && dream.tags.length > 0 ? dream.tags.join(',') : 'Default'; // Ensure Default on export
-
-    // Format: DD/MM/YY HH:MM - Dream Title, Tags:Tag1,Tag2,Tag3\nDescription\n---
-    return `${formattedDateDDMMYY} ${formattedTime} - ${dream.name}, Tags:${tags}\n${dream.description || ''}\n---`;
+    const color = dream.iconColor || '#6B7280';
+    const seq = typeof dream.displayOrder === 'number' ? dream.displayOrder : '';
+    // Format: DD/MM/YY HH:MM - Dream Title, Tags:Tag1,Tag2,Tag3, Color:#ff0000, Seq:3\nDescription\n---
+    return `${formattedDateDDMMYY} ${formattedTime} - ${dream.name}, Tags:${tags}, Color:${color}, Seq:${seq}\n${dream.description || ''}\n---`;
   }).join('\n');
 
   const markdownContent = `${header}${dreamEntries}${footer}`;
