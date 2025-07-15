@@ -29,12 +29,13 @@ export const parseImportMarkdown = (markdownText: string): DreamEntry[] => {
     const firstLine = blockLines[dreamStartIndex].trim();
     console.log('  Dream entry line:', firstLine);
     
-    // Match format: DD/MM/YY - Dream Title, Tags:Tag1,Tag2,Tag3
-    // Also handle format without tags: DD/MM/YY - Dream Title
-    const dreamFormatMatch = firstLine.match(/^(\d{2}\/\d{2}\/\d{2})\s*-\s*(.*?)(?:,\s*Tags:(.*))?$/);
+    // Match format: DD/MM/YY [HH:MM] - Dream Title, Tags:Tag1,Tag2,Tag3
+    // Also handle format without tags: DD/MM/YY [HH:MM] - Dream Title
+    const dreamFormatMatch = firstLine.match(/^([0-9]{2}\/[0-9]{2}\/[0-9]{2})(?:\s+([0-9]{2}:[0-9]{2}))?\s*-\s*(.*?)(?:,\s*Tags:(.*))?$/);
 
     if (dreamFormatMatch) {
       const dateString = dreamFormatMatch[1];
+      const timeString = dreamFormatMatch[2];
       const day = parseInt(dateString.substring(0, 2), 10);
       const month = parseInt(dateString.substring(3, 5), 10) - 1; // Month is 0-indexed
       let year = parseInt(dateString.substring(6, 8), 10);
@@ -42,15 +43,20 @@ export const parseImportMarkdown = (markdownText: string): DreamEntry[] => {
       // Handle two-digit years (assume 2000s for years 00-69, 1900s for 70-99)
       year = year < 70 ? 2000 + year : 1900 + year;
 
-      console.log(`  Parsed Date Components: Day=${day}, Month=${month + 1}, Year=${year}`);
+      let hour = 0, minute = 0;
+      if (timeString) {
+        const [h, m] = timeString.split(':').map(Number);
+        hour = h;
+        minute = m;
+      }
 
-      // Create date at midnight (00:00:00) to ensure consistent time component
-      const date = new Date(year, month, day, 0, 0, 0, 0);
+      // Create date with time if present
+      const date = new Date(year, month, day, hour, minute, 0, 0);
       const timestamp = !isNaN(date.getTime()) ? date.getTime() : Date.now();
       console.log('  Resulting Timestamp:', timestamp);
 
-      const name = dreamFormatMatch[2].trim();
-      const tagsString = dreamFormatMatch[3] ? dreamFormatMatch[3].trim() : '';
+      const name = dreamFormatMatch[3].trim();
+      const tagsString = dreamFormatMatch[4] ? dreamFormatMatch[4].trim() : '';
       
       // Parse tags - ONLY split on commas, preserve / for hierarchical tags
       let tags: string[] = [];

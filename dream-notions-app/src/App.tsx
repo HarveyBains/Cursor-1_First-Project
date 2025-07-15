@@ -144,6 +144,9 @@ function App() {
   const [dragging, setDragging] = useState(false);
   const dragOffset = useRef({ x: 0, y: 0 });
 
+  // Track the last locally updated displayOrder for each dream
+  const [localDisplayOrderMap, setLocalDisplayOrderMap] = useState<Record<string, number>>({});
+
   // Mouse event handlers for dragging
   const handleDebugPanelMouseDown = (e: React.MouseEvent) => {
     setDragging(true);
@@ -507,8 +510,17 @@ function App() {
 
       // Subscribe to Firebase data
       dreamsUnsubscribe = firestoreService.subscribeToUserDreams(user.uid, (firestoreDreams) => {
-        addDebugLog(`📥 Received ${firestoreDreams.length} dreams from Firebase.`);
-        setDreams(cleanDreamTagsAndColors(firestoreDreams));
+        // Check if the displayOrder values differ from the local optimistic state
+        const shouldUpdate = firestoreDreams.some(dream => {
+          const localOrder = localDisplayOrderMap[dream.id];
+          return typeof localOrder !== 'number' || localOrder !== dream.displayOrder;
+        });
+        if (shouldUpdate) {
+          addDebugLog(`📥 Received ${firestoreDreams.length} dreams from Firebase.`);
+          setDreams(cleanDreamTagsAndColors(firestoreDreams));
+        } else {
+          addDebugLog('📥 Firebase update ignored (optimistic local order matches)');
+        }
       });
 
       // notepadUnsubscribe = firestoreService.subscribeToNotepadContent(user.uid, (content) => {
@@ -554,7 +566,7 @@ function App() {
     return () => {
       if (dreamsUnsubscribe) dreamsUnsubscribe();
     };
-  }, [user, addDebugLog]);
+  }, [user, addDebugLog, localDisplayOrderMap]);
 
   
 
@@ -1004,14 +1016,16 @@ function App() {
           const dateB = new Date(b).getTime();
           return sortOrder === 'newest' ? dateB - dateA : dateA - dateB;
         });
-        // Sort within each group by displayOrder (if set) or timestamp
+        // Sort within each group by displayOrder (if set for all) or timestamp (latest first)
         const sortedGroups = sortedDateKeys.map(dateKey => {
           const group = groupedByDate.get(dateKey)!;
+          // If all dreams in the group have displayOrder, sort by it; otherwise, by timestamp DESC
+          const allHaveDisplayOrder = group.every(d => d.displayOrder !== undefined);
           return group.sort((a, b) => {
-            if (a.displayOrder !== undefined && b.displayOrder !== undefined && a.displayOrder !== b.displayOrder) {
-              return a.displayOrder - b.displayOrder;
+            if (allHaveDisplayOrder) {
+              return a.displayOrder! - b.displayOrder!;
             }
-            return a.timestamp - b.timestamp;
+            return b.timestamp - a.timestamp; // latest time first
           });
         });
         return sortedGroups.flat();
@@ -1031,16 +1045,55 @@ function App() {
       const toDate = new Date(toDream.timestamp).toDateString();
       if (fromDate !== toDate) return prevDreams;
 
-      // Move the item in the actual array
+      // Get all dreams in the same date group
+      const dateGroup = prevDreams.filter(d => new Date(d.timestamp).toDateString() === fromDate);
+      // Get their indices in prevDreams
+      const dateGroupIndices = dateGroup.map(d => prevDreams.findIndex(x => x.id === d.id));
+      // Get their order as in prevDreams
+      const orderedDateGroup = dateGroupIndices.map(i => prevDreams[i]);
+      // Find the positions of fromDream and toDream within the date group
+      const fromIdxInGroup = orderedDateGroup.findIndex(d => d.id === fromDream.id);
+      const toIdxInGroup = orderedDateGroup.findIndex(d => d.id === toDream.id);
+      if (fromIdxInGroup === -1 || toIdxInGroup === -1) return prevDreams;
+      // Move within the date group
+      const newDateGroup = [...orderedDateGroup];
+      const [removed] = newDateGroup.splice(fromIdxInGroup, 1);
+      newDateGroup.splice(toIdxInGroup, 0, removed);
+      // Update displayOrder for the group as 1-based sequence
+      newDateGroup.forEach((d, i) => { d.displayOrder = i + 1; });
+      // Rebuild the dreams array with the new group order
       const newDreams = [...prevDreams];
-      const [removed] = newDreams.splice(fromIndex, 1);
-      newDreams.splice(toIndex, 0, removed);
+      dateGroupIndices.forEach((dreamIdx, i) => {
+        newDreams[dreamIdx] = { ...newDateGroup[i] };
+      });
 
-      // Optionally update displayOrder for custom order
-      // (not strictly necessary unless you want to persist order)
+      // After reordering, persist the new order
+      const affectedDreams = newDateGroup.filter((d, i) => d.displayOrder !== orderedDateGroup[i].displayOrder || d.id !== orderedDateGroup[i].id);
+      if (affectedDreams.length > 0) {
+        // Update localDisplayOrderMap for optimistic update
+        setLocalDisplayOrderMap(prevMap => {
+          const newMap = { ...prevMap };
+          affectedDreams.forEach(dream => {
+            if (typeof dream.displayOrder === 'number') {
+              newMap[dream.id] = dream.displayOrder;
+            }
+          });
+          return newMap;
+        });
+        if (user && typeof firestoreService.updateDream === 'function') {
+          affectedDreams.forEach(dream => {
+            firestoreService.updateDream(dream.id, { displayOrder: dream.displayOrder })
+              .then(() => addDebugLog(`⬆️ [Dreams] Saved displayOrder for dream '${dream.name}' (Seq #${dream.displayOrder}) to Firebase`))
+              .catch(err => addDebugLog(`❌ [Dreams] Failed to save displayOrder for dream '${dream.name}': ${err}`));
+          });
+        } else {
+          saveToLocalStorage('dreams_local', newDreams);
+          addDebugLog(`⬆️ [Dreams] Saved displayOrder for ${affectedDreams.length} dreams to localStorage`);
+        }
+      }
       return newDreams;
     });
-  }, [activeFilter, activeTagFilter, sortOrder]);
+  }, [activeFilter, activeTagFilter, sortOrder, user]);
 
   const handleRenameTag = (oldTag: string, newTag: string) => {
     setDreams(prevDreams => prevDreams.map(dream => ({
@@ -1077,7 +1130,7 @@ function App() {
       );
     }
 
-    // Always group by date, then sort by displayOrder (if set) or timestamp within each group
+    // Always group by date, then sort by displayOrder (if set for all) or timestamp (latest first)
     const groupedByDate = new Map<string, DreamEntry[]>();
     currentDreams.forEach(dream => {
       const dateKey = new Date(dream.timestamp).toDateString();
@@ -1094,15 +1147,20 @@ function App() {
       return sortOrder === 'newest' ? dateB - dateA : dateA - dateB;
     });
 
-    // Sort within each group by displayOrder (if set) or timestamp
+    // Sort within each group and normalize displayOrder to 1-based sequence
     const sortedGroups = sortedDateKeys.map(dateKey => {
       const group = groupedByDate.get(dateKey)!;
-      return group.sort((a, b) => {
-        if (a.displayOrder !== undefined && b.displayOrder !== undefined && a.displayOrder !== b.displayOrder) {
-          return a.displayOrder - b.displayOrder;
-        }
-        return a.timestamp - b.timestamp;
-      });
+      // If all dreams in the group have displayOrder, sort by it; otherwise, by timestamp DESC
+      const allHaveDisplayOrder = group.every(d => d.displayOrder !== undefined);
+      let sortedGroup = group.slice();
+      if (allHaveDisplayOrder) {
+        sortedGroup.sort((a, b) => a.displayOrder! - b.displayOrder!);
+      } else {
+        sortedGroup.sort((a, b) => b.timestamp - a.timestamp);
+      }
+      // Normalize displayOrder to 1-based sequence
+      sortedGroup = sortedGroup.map((d, i) => ({ ...d, displayOrder: i + 1 }));
+      return sortedGroup;
     });
 
     return sortedGroups.flat();
@@ -1490,10 +1548,10 @@ function App() {
 
       {/* Add Dream Form */}
       <DreamForm
-        isOpen={showAddDreamForm}
+        isOpen={showAddDreamForm || !!selectedDream}
         onClose={() => { setShowAddDreamForm(false); setSelectedDream(null); }}
         onSave={handleAddDream}
-        dreamToEdit={selectedDream}
+        dreamToEdit={selectedDream ? filteredDreams.find(d => d.id === selectedDream.id) : null}
         taskTitles={taskTitles}
         allTags={allTags}
         allDreams={dreams}

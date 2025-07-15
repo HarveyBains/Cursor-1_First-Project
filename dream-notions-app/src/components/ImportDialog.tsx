@@ -98,10 +98,13 @@ const ImportDialog: React.FC<ImportDialogProps> = ({ isOpen, onClose, onImport, 
     onClose();
   };
 
-  const handleReset = (): void => {
-    if (confirm('This will permanently delete all your dream records. This action cannot be undone. Are you sure?')) {
-      onReset();
-      handleClose();
+  const handleReset = () => {
+    if (window.confirm('This will permanently delete all your dream records. This action cannot be undone. Are you sure?')) {
+      onReset(); // Delete all existing records
+      setImportText('');
+      setParseStatus('idle');
+      setParsedCount(0);
+      // Do NOT call onClose(); just reset the form fields and keep dialog open
     }
   };
 

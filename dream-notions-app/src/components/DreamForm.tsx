@@ -35,6 +35,62 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
   const [dreamDate, setDreamDate] = useState<string>(''); // YYYY-MM-DD format for input type="date"
   const [newTagInput, setNewTagInput] = useState('');
 
+  // Add state for editable date and time if editing
+  const [editDate, setEditDate] = useState(() => {
+    if (dreamToEdit && dreamToEdit.timestamp) {
+      const d = new Date(dreamToEdit.timestamp);
+      return d.toISOString().slice(0, 10); // YYYY-MM-DD
+    }
+    return '';
+  });
+  const [editTime, setEditTime] = useState(() => {
+    if (dreamToEdit && dreamToEdit.timestamp) {
+      const d = new Date(dreamToEdit.timestamp);
+      return d.toTimeString().slice(0, 5); // HH:MM
+    }
+    return '';
+  });
+
+  // When editing, update date/time state if dreamToEdit changes
+  useEffect(() => {
+    if (dreamToEdit && dreamToEdit.timestamp) {
+      const d = new Date(dreamToEdit.timestamp);
+      setEditDate(d.toISOString().slice(0, 10));
+      setEditTime(d.toTimeString().slice(0, 5));
+    }
+  }, [dreamToEdit]);
+
+  // When saving, use the edited date/time if present
+  const handleSave = () => {
+    let timestamp = dreamToEdit?.timestamp ?? Date.now();
+    if (editDate && editTime) {
+      // Reconstruct the original date/time string from dreamToEdit
+      let originalDate = '', originalTime = '';
+      if (dreamToEdit && dreamToEdit.timestamp) {
+        const d = new Date(dreamToEdit.timestamp);
+        originalDate = d.toISOString().slice(0, 10);
+        originalTime = d.toTimeString().slice(0, 5);
+      }
+      // Only update timestamp if date or time changed
+      if (editDate !== originalDate || editTime !== originalTime) {
+        const [year, month, day] = editDate.split('-').map(Number);
+        const [hour, minute] = editTime.split(':').map(Number);
+        timestamp = new Date(year, month - 1, day, hour, minute).getTime();
+      }
+    }
+    const updatedDream = {
+      ...dreamToEdit,
+      id: dreamToEdit?.id ?? Date.now().toString(), // Ensure id is always a string
+      name,
+      description,
+      isFavorite,
+      tags: tags.split(',').map(t => t.trim()).filter(Boolean),
+      iconColor,
+      timestamp,
+    };
+    onSave(updatedDream);
+  };
+
   // Hierarchical autocomplete function
   const getHierarchicalSuggestions = (input: string, availableTags: string[]): string[] => {
     const lowerInput = input.toLowerCase();
@@ -199,6 +255,18 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
               required
             />
           </div>
+          {/* Show sequence number, date, and time on the same line if editing an existing dream */}
+          {dreamToEdit && (
+            <div className="mb-2 text-xs text-muted-foreground flex gap-4 items-center justify-between">
+              <div className="flex gap-4 items-center">
+                <label>Date: <input type="date" value={editDate} onChange={e => setEditDate(e.target.value)} className="border border-border rounded px-1 py-0.5 ml-1 bg-muted text-foreground" /></label>
+                <label>Time: <input type="time" value={editTime} onChange={e => setEditTime(e.target.value)} className="border border-border rounded px-1 py-0.5 ml-1 bg-muted text-foreground" /></label>
+              </div>
+              {typeof dreamToEdit.displayOrder === 'number' && (
+                <span className="ml-auto">Sequence #: {dreamToEdit.displayOrder}</span>
+              )}
+            </div>
+          )}
           <div className="mb-4">
             <input
               type="text"
@@ -375,8 +443,9 @@ const DreamForm: React.FC<DreamFormProps> = ({ isOpen, onClose, onSave, dreamToE
               Cancel
             </button>
             <button
-              type="submit"
-              className="px-4 py-2 rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90"
+              type="button"
+              className="bg-primary text-primary-foreground px-4 py-2 rounded hover:bg-primary/90"
+              onClick={handleSave}
             >
               Save
             </button>
