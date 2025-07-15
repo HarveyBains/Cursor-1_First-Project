@@ -29,7 +29,7 @@ const ExportDialog: React.FC<ExportDialogProps> = ({ isOpen, onClose, onExport, 
   useEffect(() => {
     if (!dragging) return;
     const handleMouseMove = (e: MouseEvent) => {
-      setPanelPos(pos => ({
+      setPanelPos(_ => ({
         top: Math.max(0, e.clientY - dragOffset.current.y),
         left: Math.max(0, e.clientX - dragOffset.current.x),
       }));

@@ -506,6 +506,21 @@ export class FirestoreService {
     }
   }
 
+  async saveNotepadTabs(tabs: Tab[], userId: string): Promise<void> {
+    const notepadRef = doc(db, 'notepads', userId);
+    await setDoc(notepadRef, { tabs, updatedAt: new Date().toISOString() }, { merge: true });
+  }
+
+  async getNotepadTabs(userId: string): Promise<Tab[]> {
+    const notepadRef = doc(db, 'notepads', userId);
+    const docSnapshot = await getDoc(notepadRef);
+    if (docSnapshot.exists()) {
+      return docSnapshot.data().tabs || [];
+    } else {
+      return [];
+    }
+  }
+
   cleanup(): void {
     this.unsubscribes.forEach(unsubscribe => unsubscribe());
     this.unsubscribes = [];
