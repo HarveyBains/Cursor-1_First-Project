@@ -281,6 +281,15 @@ const NotepadDialog: React.FC<NotepadDialogProps> = ({
     } else {
       // Insert directly after the Done heading
       doneInsertIndex = structure.doneSectionStart + 1;
+      
+      // Remove any blank lines immediately after the header to ensure clean insertion
+      while (doneInsertIndex < newLines.length && 
+             doneInsertIndex <= structure.doneSectionEnd &&
+             newLines[doneInsertIndex].trim() === '') {
+        newLines.splice(doneInsertIndex, 1);
+        // Update the structure end since we removed a line
+        structure.doneSectionEnd--;
+      }
     }
     
     // Insert the line as-is
@@ -311,6 +320,15 @@ const NotepadDialog: React.FC<NotepadDialogProps> = ({
     } else {
       // Insert directly after the Todo heading
       todoInsertIndex = structure.todoSectionStart + 1;
+      
+      // Remove any blank lines immediately after the header to ensure clean insertion
+      while (todoInsertIndex < newLines.length && 
+             todoInsertIndex <= structure.todoSectionEnd &&
+             newLines[todoInsertIndex].trim() === '') {
+        newLines.splice(todoInsertIndex, 1);
+        // Update the structure end since we removed a line
+        structure.todoSectionEnd--;
+      }
     }
     
     // Insert the line as-is
@@ -339,13 +357,16 @@ const NotepadDialog: React.FC<NotepadDialogProps> = ({
       newLines.push('## Inbox');
       inboxInsertIndex = newLines.length;
     } else {
-      // Insert at the top of existing Inbox section (like Done button)
+      // Insert directly after the Inbox header (as the first item)
       inboxInsertIndex = structure.inboxSectionStart + 1;
-      // Skip any empty lines right after the header to find first content position
+      
+      // Remove any blank lines immediately after the header to ensure clean insertion
       while (inboxInsertIndex < newLines.length && 
              inboxInsertIndex <= structure.inboxSectionEnd &&
              newLines[inboxInsertIndex].trim() === '') {
-        inboxInsertIndex++;
+        newLines.splice(inboxInsertIndex, 1);
+        // Update the structure end since we removed a line
+        structure.inboxSectionEnd--;
       }
     }
     
@@ -457,7 +478,7 @@ const NotepadDialog: React.FC<NotepadDialogProps> = ({
     const todoTab = tabs.find(tab => tab.id === 'todo');
     const formattedContent = todoTab ? formatContent(todoTab.content) : '';
     onSave(formattedContent);
-    onClose();
+    // Don't close the window - let user continue working
   };
 
   if (!isOpen) return null;
@@ -500,7 +521,6 @@ const NotepadDialog: React.FC<NotepadDialogProps> = ({
             <div className="flex items-center gap-4">
               <TabsList className="h-auto p-0 bg-transparent border-none shadow-none">
                 {tabs.map((tab) => {
-                  const isActive = tab.id === activeTabId;
                   return (
                     <ContextMenu key={tab.id}>
                       <ContextMenuTrigger asChild>

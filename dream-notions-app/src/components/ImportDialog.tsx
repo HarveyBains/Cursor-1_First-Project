@@ -117,7 +117,7 @@ const ImportDialog: React.FC<ImportDialogProps> = ({ isOpen, onClose, onImport, 
         minWidth: 500,
         maxWidth: 700,
         width: 600,
-        height: 420,
+        height: 500,
         minHeight: 320,
         boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
         cursor: dragging ? 'move' : 'default',
@@ -140,8 +140,13 @@ const ImportDialog: React.FC<ImportDialogProps> = ({ isOpen, onClose, onImport, 
         <textarea
           value={importText}
           onChange={(e) => setImportText(e.target.value)}
-          placeholder="Please paste in your dream journal content here. These dreams will be added to your existing collection."
-          className="w-full h-40 px-3 py-2 border border-border rounded bg-muted/20 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm resize-none mb-4"
+          placeholder="# Dreams Journal Export
+---
+15/07/25 - Dream-Reflection4: Rephrase and Redesign your custom reality by expressing Vibes to shape it the way you want
+---
+15/07/25 - Dream-3-Reflection: Vibe Coding, Tags: #default
+Maybe this was a a response from the Unknown about the question I had as I went to sleep."
+          className="w-full flex-1 px-3 py-2 border border-border rounded bg-muted/20 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm resize-none mb-4"
           disabled={parseStatus === 'parsing'}
         />
         {parseStatus === 'success' && (
