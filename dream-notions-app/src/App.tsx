@@ -56,6 +56,17 @@ function App() {
   const [showNotepadDialog, setShowNotepadDialog] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showAISettings, setShowAISettings] = useState(false);
+  
+  // Multi-select functionality
+  const [selectedDreamIds, setSelectedDreamIds] = useState<Set<string>>(new Set());
+  const [multiSelectMode, setMultiSelectMode] = useState(false);
+  const [multiSelectContextMenu, setMultiSelectContextMenu] = useState<{ 
+    visible: boolean; 
+    x: number; 
+    y: number; 
+  }>({ 
+    visible: false, x: 0, y: 0 
+  });
   // Multi-tab Notepad state
   const [notepadTabs, setNotepadTabs] = useState<Tab[]>(() => {
     // Try to load from localStorage or migrate from old single notepadContent
@@ -816,6 +827,82 @@ function App() {
     return sortedGroups.flat();
   };
 
+  // Multi-select handlers
+  const handleDreamSelect = useCallback((dreamId: string, isSelected: boolean) => {
+    setSelectedDreamIds(prev => {
+      const newSet = new Set(prev);
+      if (isSelected) {
+        newSet.add(dreamId);
+      } else {
+        newSet.delete(dreamId);
+      }
+      
+      // Exit multi-select mode if no dreams are selected
+      if (newSet.size === 0) {
+        setMultiSelectMode(false);
+      }
+      
+      return newSet;
+    });
+  }, []);
+
+  const handleEnterMultiSelectMode = useCallback((dreamId: string) => {
+    setMultiSelectMode(true);
+    setSelectedDreamIds(new Set([dreamId]));
+  }, []);
+
+  const handleExitMultiSelectMode = useCallback(() => {
+    setMultiSelectMode(false);
+    setSelectedDreamIds(new Set());
+    setMultiSelectContextMenu({ visible: false, x: 0, y: 0 });
+  }, []);
+
+  const handleMultiSelectContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    if (selectedDreamIds.size > 0) {
+      setMultiSelectContextMenu({
+        visible: true,
+        x: e.clientX,
+        y: e.clientY
+      });
+    }
+  }, [selectedDreamIds.size]);
+
+  const handleCopySelectedDescriptions = useCallback(async () => {
+    if (selectedDreamIds.size === 0) return;
+    
+    const selectedDreams = dreams.filter(dream => selectedDreamIds.has(dream.id));
+    const descriptions = selectedDreams.map(dream => {
+      const date = new Date(dream.timestamp).toLocaleDateString();
+      const title = dream.name;
+      const description = dream.description || '';
+      return `${date} - ${title}\n${description}`;
+    }).join('\n\n---\n\n');
+    
+    try {
+      await navigator.clipboard.writeText(descriptions);
+      // You could add a toast notification here
+      console.log('Descriptions copied to clipboard');
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error);
+      // Fallback: You could show a modal with the text to manually copy
+    }
+    
+    setMultiSelectContextMenu({ visible: false, x: 0, y: 0 });
+  }, [selectedDreamIds, dreams]);
+
+  // Close context menu when clicking elsewhere
+  useEffect(() => {
+    const handleClick = () => {
+      setMultiSelectContextMenu({ visible: false, x: 0, y: 0 });
+    };
+    
+    if (multiSelectContextMenu.visible) {
+      document.addEventListener('click', handleClick);
+      return () => document.removeEventListener('click', handleClick);
+    }
+  }, [multiSelectContextMenu.visible]);
+
   const moveDream = useCallback((displayedFrom: number, displayedTo: number) => {
     if (!dreamsReady) {
       addDebugLog('⏳ Dreams not ready yet, move ignored.');
@@ -1272,6 +1359,28 @@ function App() {
         {/* Tag Breadcrumbs */}
         <TagBreadcrumbs activeTagFilter={activeTagFilter} setActiveTagFilter={setActiveTagFilter} recordCount={filteredDreams.length} />
 
+        {/* Multi-select header */}
+        {multiSelectMode && (
+          <div className="mb-4 p-3 bg-primary/5 border border-primary/20 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium text-primary">
+                  {selectedDreamIds.size} dream{selectedDreamIds.size !== 1 ? 's' : ''} selected
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  Right-click selected dreams for actions • Ctrl+click to add more
+                </span>
+              </div>
+              <button
+                onClick={handleExitMultiSelectMode}
+                className="px-3 py-1 text-xs rounded-md bg-muted text-foreground hover:bg-muted/80 transition-colors"
+              >
+                Exit Multi-Select
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Dream List or Welcome Page */}
         {filteredDreams.length === 0 ? (
           <div className="text-center py-12">
@@ -1314,6 +1423,11 @@ function App() {
                       onEdit={(dreamToEdit) => { setSelectedDream(dreamToEdit); setShowAddDreamForm(true); }}
                       onDelete={confirmDeleteDream}
                       totalItems={filteredDreams.length}
+                      isSelected={selectedDreamIds.has(dream.id)}
+                      multiSelectMode={multiSelectMode}
+                      onSelect={handleDreamSelect}
+                      onEnterMultiSelectMode={handleEnterMultiSelectMode}
+                      onMultiSelectContextMenu={handleMultiSelectContextMenu}
                     />
                   </React.Fragment>
                 );
@@ -1395,6 +1509,30 @@ function App() {
         isOpen={showAISettings}
         onClose={() => setShowAISettings(false)}
       />
+
+      {/* Multi-select Context Menu */}
+      {multiSelectContextMenu.visible && (
+        <div
+          className="fixed bg-background border border-border rounded-md shadow-lg py-1 z-50 min-w-[200px]"
+          style={{ left: multiSelectContextMenu.x, top: multiSelectContextMenu.y }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={handleCopySelectedDescriptions}
+            className="w-full px-3 py-2 text-left text-sm hover:bg-muted transition-colors flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            <div className="flex flex-col">
+              <span>Copy descriptions to clipboard</span>
+              <span className="text-xs text-muted-foreground">
+                {selectedDreamIds.size} dream{selectedDreamIds.size !== 1 ? 's' : ''} selected
+              </span>
+            </div>
+          </button>
+        </div>
+      )}
 
       {/* Custom Context Menu */}
       {contextMenu.visible && contextMenu.tag && (

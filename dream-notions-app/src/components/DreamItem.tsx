@@ -9,6 +9,12 @@ interface DreamItemProps {
   onEdit: (dream: DreamEntry) => void;
   onDelete: (id: string) => void;
   totalItems?: number;
+  // Multi-select props
+  isSelected?: boolean;
+  multiSelectMode?: boolean;
+  onSelect?: (dreamId: string, isSelected: boolean) => void;
+  onEnterMultiSelectMode?: (dreamId: string) => void;
+  onMultiSelectContextMenu?: (e: React.MouseEvent) => void;
 }
 
 interface DragItem {
@@ -19,7 +25,19 @@ interface DragItem {
 
 const ITEM_TYPE = 'dream';
 
-const DreamItem: React.FC<DreamItemProps> = ({ dream, index, onMove, onEdit, onDelete, totalItems = 0 }) => {
+const DreamItem: React.FC<DreamItemProps> = ({ 
+  dream, 
+  index, 
+  onMove, 
+  onEdit, 
+  onDelete, 
+  totalItems = 0,
+  isSelected = false,
+  multiSelectMode = false,
+  onSelect,
+  onEnterMultiSelectMode,
+  onMultiSelectContextMenu
+}) => {
   const ref = useRef<HTMLDivElement>(null);
   const [contextMenu, setContextMenu] = useState<{ visible: boolean; x: number; y: number }>({ 
     visible: false, x: 0, y: 0 
@@ -37,11 +55,32 @@ const DreamItem: React.FC<DreamItemProps> = ({ dream, index, onMove, onEdit, onD
   // Handle right-click context menu
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
-    setContextMenu({
-      visible: true,
-      x: e.clientX,
-      y: e.clientY
-    });
+    
+    // If in multi-select mode and this item is selected, show multi-select menu
+    if (multiSelectMode && isSelected && onMultiSelectContextMenu) {
+      onMultiSelectContextMenu(e);
+    } else {
+      // Show individual item context menu
+      setContextMenu({
+        visible: true,
+        x: e.clientX,
+        y: e.clientY
+      });
+    }
+  };
+
+  // Handle click with multi-select support
+  const handleClick = (e: React.MouseEvent) => {
+    if (multiSelectMode && onSelect) {
+      // In multi-select mode, toggle selection
+      onSelect(dream.id, !isSelected);
+    } else if (e.ctrlKey || e.metaKey) {
+      // Ctrl/Cmd+click to enter multi-select mode
+      if (onEnterMultiSelectMode) {
+        onEnterMultiSelectMode(dream.id);
+      }
+    }
+    // Normal click behavior is handled by individual buttons
   };
 
   // Handle move up - move current item to position above
@@ -129,8 +168,18 @@ const DreamItem: React.FC<DreamItemProps> = ({ dream, index, onMove, onEdit, onD
 
   const opacity = isDragging ? 0.5 : 1;
   const scale = isDragging ? 'scale(1.05)' : 'scale(1)';
-  const borderColor = isOver && !isDragging ? 'border-primary' : 'border-border';
-  const backgroundColor = isOver && !isDragging ? 'bg-primary/5' : 'bg-card';
+  
+  // Multi-select styling
+  let borderColor = 'border-border';
+  let backgroundColor = 'bg-card';
+  
+  if (isSelected) {
+    borderColor = 'border-primary';
+    backgroundColor = 'bg-primary/10';
+  } else if (isOver && !isDragging) {
+    borderColor = 'border-primary';
+    backgroundColor = 'bg-primary/5';
+  }
   
   drag(drop(ref));
 
@@ -151,12 +200,25 @@ const DreamItem: React.FC<DreamItemProps> = ({ dream, index, onMove, onEdit, onD
           transition: 'all 0.2s ease'
         }} 
         data-handler-id={handlerId} 
-        className={`${backgroundColor} border ${borderColor} rounded-lg p-1.5 mb-1.5 shadow-sm hover:shadow-md transition-all cursor-move`}
+        className={`${backgroundColor} border ${borderColor} rounded-lg p-1.5 mb-1.5 shadow-sm hover:shadow-md transition-all ${multiSelectMode ? 'cursor-pointer' : 'cursor-move'} ${isSelected ? 'ring-2 ring-primary/30' : ''}`}
         onContextMenu={handleContextMenu}
+        onClick={handleClick}
       >
       <div className="flex items-center gap-1.5">
         <div className="flex-shrink-0 w-12 flex items-center justify-center gap-1">
-          <div className="text-muted-foreground text-xs leading-none hover:text-primary transition-colors cursor-grab active:cursor-grabbing">⋮⋮</div>
+          {multiSelectMode ? (
+            // Checkbox in multi-select mode
+            <div className="w-4 h-4 rounded border-2 border-primary flex items-center justify-center bg-background">
+              {isSelected && (
+                <svg className="w-3 h-3 text-primary" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+              )}
+            </div>
+          ) : (
+            // Normal drag handle
+            <div className="text-muted-foreground text-xs leading-none hover:text-primary transition-colors cursor-grab active:cursor-grabbing">⋮⋮</div>
+          )}
           <div 
             className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden border"
             style={{ 
